@@ -23,7 +23,7 @@ function PlatformSessionsCreate() {
   
   const [form, setForm] = useState({
     session_no: '', rowaq: '', level: '', mohfez: '',
-    mohfez_type: '', student_type: '', attendance_type: 'عن بعد', time_start: '', time_end: '',
+    student_type: '', attendance_type: 'عن بعد', time_start: '', time_end: '',
     workDays: [], countries: [], stream_type: 'external', teams_link: ''
   });
 
@@ -60,7 +60,6 @@ function PlatformSessionsCreate() {
           rowaq: sessionToEdit.rowaq || '',
           level: sessionToEdit.level || '',
           mohfez: sessionToEdit.mohfez || '',
-          mohfez_type: sessionToEdit.mohfez_type || '',
           student_type: sessionToEdit.student_type || '',
           attendance_type: sessionToEdit.attendance_type || '',
           time_start: sessionToEdit.time_start || '',
@@ -188,15 +187,7 @@ function PlatformSessionsCreate() {
 
         <h3 style={{ marginBottom: '20px', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-subtle)', padding: '10px', fontSize: '18px' }}>تفاصيل الحلقة</h3>
         
-        <div className="form-grid" style={{ marginBottom: '20px', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-          <div className="form-group">
-            <label>نوع المحفظ <span className="req">*</span></label>
-            <select name="mohfez_type" className="form-select" value={form.mohfez_type} onChange={handleChange}>
-              <option value="">اختار النوع</option>
-              <option value="متطوع">متطوع</option>
-              <option value="بمكافأة">بمكافأة</option>
-            </select>
-          </div>
+        <div className="form-grid" style={{ marginBottom: '20px', gridTemplateColumns: 'repeat(1, 1fr)' }}>
           <div className="form-group">
             <label>نوع الدارسين <span className="req">*</span></label>
             <select name="student_type" className="form-select" value={form.student_type} onChange={handleChange}>
