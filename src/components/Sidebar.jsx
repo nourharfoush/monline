@@ -66,6 +66,13 @@ const menuGroups = [
     ]
   },
   {
+    title: 'التقارير',
+    isPlatformOnly: true,
+    items: [
+      { name: 'تقارير عامة (قريباً)', icon: FileText, path: '/platform-reports' },
+    ]
+  },
+  {
     title: 'إعدادات المنصة',
     isPlatformOnly: true,
     items: [
@@ -187,6 +194,7 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-sessions',
         '/platform-students',
         '/platform-applicants',
+        '/platform-reports',
         '/users',
         '/permissions',
         '/settings'
@@ -202,7 +210,8 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-mohfez',
         '/platform-sessions',
         '/platform-students',
-        '/platform-applicants'
+        '/platform-applicants',
+        '/platform-reports'
       ];
       return allowed.includes(path);
     }
@@ -232,7 +241,8 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-mohfez',
         '/platform-sessions',
         '/platform-students',
-        '/platform-applicants'
+        '/platform-applicants',
+        '/platform-reports'
       ];
       return !forbidden.includes(path);
     }
@@ -248,6 +258,7 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-sessions',
         '/platform-students',
         '/platform-applicants',
+        '/platform-reports',
         '/users',
         '/permissions',
         '/settings',
@@ -267,6 +278,7 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-sessions',
         '/platform-students',
         '/platform-applicants',
+        '/platform-reports',
         '/users',
         '/permissions',
         '/settings',

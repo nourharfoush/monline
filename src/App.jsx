@@ -23,6 +23,7 @@ import PlatformStudentsList from './pages/PlatformStudentsList';
 import PlatformStudentsCreate from './pages/PlatformStudentsCreate';
 import PlatformApplicantsList from './pages/PlatformApplicantsList';
 import PlatformApplicantsCreate from './pages/PlatformApplicantsCreate';
+import PlatformReports from './pages/PlatformReports';
 import UsersList from './pages/UsersList';
 import PermissionsManagement from './pages/PermissionsManagement';
 import Settings from './pages/Settings';
@@ -95,6 +96,7 @@ function DashboardLayout() {
             <Route path="/platform-students/create" element={<PlatformStudentsCreate />} />
             <Route path="/platform-applicants" element={<PlatformApplicantsList />} />
             <Route path="/platform-applicants/create" element={<PlatformApplicantsCreate />} />
+            <Route path="/platform-reports" element={<PlatformReports />} />
             
             <Route path="/users" element={<UsersList />} />
             <Route path="/permissions" element={<PermissionsManagement />} />
