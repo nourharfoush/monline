@@ -56,7 +56,7 @@ function PlatformMohfezsCreate() {
       return;
     }
 
-    if (!form.name || !form.national_id || !form.registry_no) {
+    if (!form.name || !form.national_id || !form.workplace || !form.job_grade) {
       alert('الرجاء ملء الحقول المطلوبة');
       return;
     }
@@ -74,7 +74,7 @@ function PlatformMohfezsCreate() {
     const finalForm = {
       ...form,
       username: form.national_id,
-      password: form.registry_no
+      password: form.registry_no || form.national_id
     };
     
     const existingUser = users.find(u => u.national_id === form.national_id || u.email === form.national_id);
@@ -86,19 +86,19 @@ function PlatformMohfezsCreate() {
           name: form.name,
           phone: form.phone,
           email: form.national_id,
-          password: form.registry_no,
+          password: form.registry_no || form.national_id,
           national_id: form.national_id,
-          record_number: form.registry_no
+          record_number: form.registry_no || ''
         });
       } else {
         addUser({
           name: form.name,
           email: form.national_id,
-          password: form.registry_no,
+          password: form.registry_no || form.national_id,
           phone: form.phone,
           role: 'platform_mohfez',
           national_id: form.national_id,
-          record_number: form.registry_no
+          record_number: form.registry_no || ''
         });
       }
       alert('تم تحديث المحفظ بنجاح');
@@ -111,17 +111,17 @@ function PlatformMohfezsCreate() {
           role: 'platform_mohfez',
           email: form.national_id,
           national_id: form.national_id,
-          record_number: form.registry_no
+          record_number: form.registry_no || ''
         });
       } else {
         addUser({
           name: form.name,
           email: form.national_id,
-          password: form.registry_no,
+          password: form.registry_no || form.national_id,
           phone: form.phone,
           role: 'platform_mohfez',
           national_id: form.national_id,
-          record_number: form.registry_no
+          record_number: form.registry_no || ''
         });
       }
       alert('تم إضافة المحفظ بنجاح');
@@ -161,7 +161,7 @@ function PlatformMohfezsCreate() {
           </div>
           
           <div className="form-group">
-            <label>رقم السجل <span className="req">*</span></label>
+            <label>رقم السجل</label>
             <input name="registry_no" type="text" className="form-input" placeholder="أدخل رقم السجل" value={form.registry_no} onChange={handleChange} />
           </div>
         </div>
