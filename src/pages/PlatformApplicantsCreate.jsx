@@ -178,8 +178,8 @@ function PlatformApplicantsCreate() {
               <option value="">اختار الرواق</option>
               <option value="رواق القرآن الكريم ( أطفال )">رواق القرآن الكريم ( أطفال )</option>
               <option value="رواق القرآن الكريم ( كبار )">رواق القرآن الكريم ( كبار )</option>
-              <option value="متعدد البرامج ( قرآن كريم_قراءات_تجويد)">متعدد البرامج ( قرآن كريم_قراءات_تجويد)</option>
-              <option value="متعدد البرامج ( قرآن كريم_قراءات_تجويد)">متعدد البرامج ( قرآن كريم_قراءات_تجويد)</option>
+              <option value="رواق التجويد">رواق التجويد</option>
+              <option value="رواق القراءات">رواق القراءات</option>
             </select>
           </div>
         </div>
