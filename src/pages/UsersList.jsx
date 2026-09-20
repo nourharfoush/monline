@@ -163,10 +163,10 @@ function UsersList() {
           username: 'admin',
           email: 'admin',
           national_id: 'admin',
-          record_number: 'admin'
         };
         if (modalForm.password) {
           updateData.password = modalForm.password;
+          updateData.record_number = modalForm.password; // تحديث record_number أيضاً لمنع الدخول بالباسورد القديم
         }
       } else {
         updateData = {
