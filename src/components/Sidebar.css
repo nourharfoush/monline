@@ -1,0 +1,153 @@
+.sidebar {
+  width: 260px;
+  background-color: var(--bg-sidebar);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+
+.sidebar.closed {
+  width: 0;
+  transform: translateX(100%);
+  border: none;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-header .logo {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.header-titles h3 {
+  font-size: 16px;
+  color: var(--accent-gold);
+  margin-bottom: 4px;
+}
+
+.header-titles p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.sidebar-menu {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px 0;
+}
+
+.menu-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-group-title {
+  font-size: 11px;
+  color: var(--text-muted, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 25px 5px 25px;
+  font-weight: 700;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 25px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border-right: 3px solid transparent;
+}
+
+.menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+}
+
+.menu-item.active {
+  background-color: rgba(212, 175, 55, 0.08); /* gold with opacity */
+  color: var(--accent-gold);
+  border-right-color: var(--accent-gold);
+}
+
+.menu-item .menu-icon {
+  opacity: 0.8;
+}
+.menu-item.active .menu-icon {
+  opacity: 1;
+}
+
+.menu-divider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 10px 25px;
+}
+
+.logout-btn {
+  color: #ef4444; /* red for logout */
+}
+.logout-btn:hover {
+  background-color: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+/* Mobile & Tablet Drawer Support */
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 992px) {
+  .sidebar {
+    position: fixed;
+    z-index: 1000;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    transition: right 0.3s ease;
+    box-shadow: -5px 0 25px rgba(0, 0, 0, 0.4);
+  }
+
+  .sidebar.closed {
+    right: -260px;
+    width: 260px;
+    transform: none;
+    box-shadow: none;
+    border-left: none;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    animation: fadeInBackdrop 0.25s ease-out;
+  }
+}
+
+@keyframes fadeInBackdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+

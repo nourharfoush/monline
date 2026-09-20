@@ -1,0 +1,268 @@
+import React, { useState } from 'react';
+import { useParams, Link, useLocation } from 'react-router-dom';
+import { Plus, Trash2, Eye, Download } from 'lucide-react';
+import '../components/Management.css';
+import { useAppData } from '../context/AppDataContext';
+import { exportToXLSX } from '../utils/xlsxHelper';
+
+function SessionAttendance() {
+  const { id } = useParams();
+  const location = useLocation();
+  const isPlatform = location.pathname.startsWith('/platform-sessions');
+  const { sessions, platformSessions, attendances, deleteAttendance, hasPermission, students, platformStudents } = useAppData();
+  
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [selectedAttendance, setSelectedAttendance] = useState(null);
+  
+  const sessionId = id;
+  const session = isPlatform
+    ? platformSessions.find(s => String(s.id) === String(id))
+    : sessions.find(s => String(s.id) === String(id));
+  const sessionAttendances = attendances.filter(a => String(a.sessionId) === String(sessionId) && !!a.isPlatform === isPlatform);
+
+  const getActiveAttendanceInfo = (attendance) => {
+    if (!attendance) return { presentCount: 0, absentCount: 0, records: [] };
+    const activeRecords = (attendance.records || []).filter(r => {
+      const student = isPlatform 
+        ? platformStudents.find(st => String(st.id) === String(r.studentId))
+        : students.find(st => String(st.id) === String(r.studentId));
+      return !student || !student.isArchived;
+    });
+    const presentCount = activeRecords.filter(r => r.isPresent).length;
+    const absentCount = activeRecords.filter(r => !r.isPresent).length;
+    return { presentCount, absentCount, records: activeRecords };
+  };
+
+  // Get current user and role
+  const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+  const role = currentUser ? currentUser.role : 'admin';
+  const userAdmin = currentUser ? currentUser.userAdmin : '';
+  const userBranch = currentUser ? currentUser.userBranch : '';
+  const userSession = currentUser ? currentUser.userSession : '';
+
+  const isSuperAdmin = role === 'admin';
+  const isRowaqAdmin = role === 'rowaq_admin';
+  const isPlatformAdmin = role === 'platform_admin';
+  const isRowaqStaff = ['rowaq_manager', 'rowaq_tech', 'rowaq_member'].includes(role);
+  const isBranchCoordinator = ['branch_admin_coordinator', 'branch_scientific_coordinator'].includes(role);
+  const isMohfez = role === 'mohfez';
+  const isPlatformCoordinator = role === 'platform_coordinator';
+  const isPlatformMohfez = role === 'platform_mohfez';
+  const isStudent = role === 'student';
+
+  const normalizeArabic = (str) => {
+    if (!str) return '';
+    return str
+      .toString()
+      .trim()
+      .normalize('NFKD')
+      .normalize('NFC')
+      .replace(/ً/g, '')
+      .replace(/ٌ/g, '')
+      .replace(/ٍ/g, '')
+      .replace(/َ/g, '')
+      .replace(/ُ/g, '')
+      .replace(/ِ/g, '')
+      .replace(/ّ/g, '')
+      .replace(/ْ/g, '')
+      .replace(/[أإآا]/g, 'ا')
+      .replace(/[ىي]/g, 'ي')
+      .replace(/[ة]/g, 'ه')
+      .replace(/[ـ]/g, '')
+      .replace(/\s+/g, ' ')
+      .toLowerCase()
+      .trim();
+  };
+
+  // Check geographic access to the session
+  let hasGeographicAccess = true;
+  if (!isSuperAdmin) {
+    if (isRowaqAdmin && isPlatform) hasGeographicAccess = false;
+    if (isPlatformAdmin && !isPlatform) hasGeographicAccess = false;
+
+    if (session) {
+      if (isRowaqStaff && userAdmin && session.admin !== userAdmin) hasGeographicAccess = false;
+      if (isBranchCoordinator && userBranch && session.branch !== userBranch) hasGeographicAccess = false;
+      if (isMohfez || isPlatformMohfez) {
+        if (currentUser.name && normalizeArabic(session.mohfez) !== normalizeArabic(currentUser.name)) {
+          hasGeographicAccess = false;
+        }
+      }
+      if ((isMohfez || isPlatformMohfez || isPlatformCoordinator || isStudent) && userSession) {
+        if (String(session.id) !== String(userSession) && session.session_name !== userSession && session.session_no !== userSession) {
+          hasGeographicAccess = false;
+        }
+      }
+    } else {
+      hasGeographicAccess = false;
+    }
+  }
+
+
+  const handleExport = () => {
+    const exportData = sessionAttendances.map(a => {
+      const { presentCount, absentCount } = getActiveAttendanceInfo(a);
+      return {
+        'التاريخ': a.date,
+        'الحاضرين': presentCount,
+        'الغائبين': absentCount,
+      };
+    });
+    exportToXLSX(exportData, `غياب_حلقة_${session?.session_no || sessionId}`, `إدارة الغياب - حلقة: ${session?.session_no || sessionId}`);
+  };
+
+  if (!hasPermission('sessions', 'view') || !hasGeographicAccess) {
+    return (
+      <div className="management-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <div className="box-card" style={{ textAlign: 'center', maxWidth: '500px', padding: '40px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+          <h3 style={{ color: '#ef4444', marginBottom: '15px' }}>عذراً، ليس لديك صلاحية لعرض هذا القسم</h3>
+          <p style={{ color: 'var(--text-secondary)' }}>يرجى التواصل مع مدير النظام للحصول على الصلاحيات اللازمة أو التأكد من نطاق صلاحيتك الجغرافية.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="management-page">
+      <div className="page-header" style={{ marginBottom: '20px' }}>
+        <h2 style={{ textAlign: 'center', width: '100%' }}>ادارة الغياب [حلقة:{session?.session_no || sessionId}]</h2>
+      </div>
+
+      <div className="table-controls" style={{ justifyContent: 'space-between', flexDirection: 'row-reverse', marginBottom: '15px' }}>
+        <div className="action-buttons" style={{ flexDirection: 'row-reverse' }}>
+          <Link to={isPlatform ? `/platform-sessions/${sessionId}/attendance/add` : `/sessions/${sessionId}/attendance/add`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
+            <Plus size={16} /> إضافة الغياب
+          </Link>
+        </div>
+      </div>
+
+      <div className="table-wrapper box-card">
+        <table className="management-table">
+          <thead>
+            <tr>
+              <th colSpan="4" style={{ textAlign: 'center', background: 'var(--bg-card)' }}>الغياب</th>
+            </tr>
+            <tr style={{ background: 'var(--bg-secondary)' }}>
+              <th style={{ textAlign: 'center' }}>التاريخ</th>
+              <th style={{ textAlign: 'center' }}>الحاضرين</th>
+              <th style={{ textAlign: 'center' }}>الغائبين</th>
+              <th style={{ textAlign: 'center' }}>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessionAttendances.length === 0 ? (
+              <tr>
+                <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
+                  لا يوجد سجلات غياب لهذه الحلقة.
+                </td>
+              </tr>
+            ) : (
+              sessionAttendances.map(a => {
+                const { presentCount, absentCount } = getActiveAttendanceInfo(a);
+                return (
+                  <tr key={a.id}>
+                    <td style={{ direction: 'ltr', textAlign: 'center' }}>{a.date}</td>
+                    <td style={{ textAlign: 'center' }}>{presentCount}</td>
+                    <td style={{ textAlign: 'center' }}>{absentCount}</td>
+                  <td className="actions-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                    <button className="btn" style={{ background: '#374151', color: 'white', padding: '6px 12px', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleExport}>
+                      تصدير <Download size={14} />
+                    </button>
+                    <button className="btn" style={{ background: '#0ea5e9', color: 'white', padding: '6px 12px', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { setSelectedAttendance(a); setShowPreviewModal(true); }}>
+                      معاينة <Eye size={14} />
+                    </button>
+                    <button className="btn" style={{ background: '#ef4444', color: 'white', padding: '6px 10px', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => deleteAttendance(a.id)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Attendance Preview Modal */}
+      {showPreviewModal && selectedAttendance && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          backdropFilter: 'blur(4px)',
+          direction: 'rtl'
+        }}>
+          <div className="box-card animate-float-1" style={{
+            width: '90%',
+            maxWidth: '600px',
+            padding: '30px',
+            position: 'relative',
+            border: '1px solid var(--accent-gold)'
+          }}>
+            <h3 style={{ marginBottom: '20px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px', color: 'var(--text-primary)' }}>
+              معاينة غياب وحضور حلقة {session?.session_no || sessionId}
+            </h3>
+            
+            {(() => {
+              const { presentCount, absentCount, records } = getActiveAttendanceInfo(selectedAttendance);
+              return (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', backgroundColor: 'var(--bg-secondary)', padding: '12px 20px', borderRadius: '8px' }}>
+                    <div><strong>تاريخ السجل:</strong> {selectedAttendance.date}</div>
+                    <div>
+                      <span style={{ color: '#10b981', marginLeft: '15px' }}><strong>حاضر:</strong> {presentCount}</span>
+                      <span style={{ color: '#ef4444' }}><strong>غائب:</strong> {absentCount}</span>
+                    </div>
+                  </div>
+
+                  <h4 style={{ marginBottom: '10px', color: 'var(--text-secondary)' }}>تفاصيل حضور الدارسين:</h4>
+                  <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '8px', marginBottom: '25px' }}>
+                    {records.length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        لا توجد تفاصيل تفصيلية مسجلة للدارسين النشطين.
+                      </div>
+                    ) : (
+                      records.map((record, idx) => (
+                        <div key={idx} style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '10px 20px',
+                          backgroundColor: idx % 2 === 0 ? 'var(--bg-secondary)' : 'var(--bg-card)',
+                          borderBottom: idx < records.length - 1 ? '1px solid var(--border-subtle)' : 'none'
+                        }}>
+                          <span>{record.studentName}</span>
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            backgroundColor: record.isPresent ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            color: record.isPresent ? '#10b981' : '#ef4444',
+                            border: record.isPresent ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'
+                          }}>
+                            {record.isPresent ? 'حاضر' : 'غائب'}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-start', flexDirection: 'row-reverse' }}>
+              <button className="btn btn-outline" onClick={() => { setShowPreviewModal(false); setSelectedAttendance(null); }}>إغلاق</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default SessionAttendance;
