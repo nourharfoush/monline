@@ -1659,29 +1659,31 @@ export function AppDataProvider({ children }) {
       localStorage.setItem('users', JSON.stringify(updated));
     } catch (e) { console.error(e); }
     if (payload) {
-      // محاولة التحديث أولاً — إذا فشل (السجل غير موجود في MongoDB) نُنشئه
-      usersAPI.update(id, payload).catch(async () => {
-        try {
-          // السجل غير موجود — تحقق من MongoDB وأنشئه إذا لزم
-          const allUsers = await usersAPI.getAll().catch(() => []);
-          const existsInDB = allUsers.some(u =>
-            u.national_id === 'admin' || u.username === 'admin' || String(u.id) === String(id)
-          );
-          if (!existsInDB) {
-            // الأدمن غير موجود في MongoDB — أنشئه
-            await usersAPI.create(payload).catch(err => console.error('Failed to create admin in DB:', err));
-          } else {
-            // موجود لكن بـ ID مختلف — ابحث عنه وحدّثه
+      const isAdminPayload = payload.role === 'admin' || payload.username === 'admin' || payload.national_id === 'admin';
+      if (isAdminPayload) {
+        // للأدمن: دائماً ابحث في MongoDB بالـ username للحصول على الـ _id الحقيقي
+        (async () => {
+          try {
+            const allUsers = await usersAPI.getAll().catch(() => []);
             const dbAdmin = allUsers.find(u => u.national_id === 'admin' || u.username === 'admin');
             if (dbAdmin) {
-              const dbId = dbAdmin._id || dbAdmin.id;
-              await usersAPI.update(dbId, payload).catch(err => console.error('Failed to update admin by DB id:', err));
+              // الأدمن موجود — استخدم الـ _id الحقيقي للتحديث
+              const realId = dbAdmin._id || dbAdmin.id;
+              await usersAPI.update(realId, payload);
+              console.log('✅ Admin password updated in MongoDB using real _id:', realId);
+            } else {
+              // الأدمن غير موجود في MongoDB — أنشئه
+              await usersAPI.create(payload);
+              console.log('✅ Admin created in MongoDB with new password');
             }
+          } catch (err) {
+            console.error('❌ Admin sync to MongoDB failed:', err);
           }
-        } catch (err) {
-          console.error('Admin sync to MongoDB failed:', err);
-        }
-      });
+        })();
+      } else {
+        // للمستخدمين العاديين: استخدم الـ id المحلي
+        usersAPI.update(id, payload).catch(err => console.error(err));
+      }
     }
   };
 
