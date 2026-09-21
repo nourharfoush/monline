@@ -1614,13 +1614,15 @@ export function AppDataProvider({ children }) {
       const merged = { ...u, ...updatedUser };
       const isAdminRole = merged.role === 'admin';
       if (isAdminRole) {
+        // الباسورد الجديد يأتي من updatedUser.password — نحفظه في كلا الحقلين
+        const newPass = updatedUser.password || merged.password || merged.record_number || '';
         return {
           ...merged,
           username: 'admin',
           email: 'admin',
           national_id: 'admin',
-          record_number: 'admin',
-          password: merged.password || merged.record_number || '',
+          password: newPass,
+          record_number: newPass, // ← نحفظ الباسورد الجديد هنا أيضاً (ليس 'admin')
         };
       }
       return {
