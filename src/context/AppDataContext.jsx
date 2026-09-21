@@ -501,9 +501,21 @@ export function AppDataProvider({ children }) {
             // الأدمن موجود في قاعدة البيانات — نستخدم بياناته كما هي (بما فيها الباسورد الجديد)
             finalUsers = normalizedRemote;
           } else {
-            // لا يوجد أدمن في الخادم — نضيف الافتراضي فقط كإجراء احتياطي
-            const fallbackAdmin = { id: 1, username: 'admin', email: 'admin', national_id: 'admin', password: '123', record_number: '123', name: 'Admin', role: 'admin' };
+            // الأدمن غير موجود في MongoDB — نأخذ باسورده من localStorage إن وُجد
+            let adminFromLocal = null;
+            try {
+              const localUsers = JSON.parse(localStorage.getItem('users') || '[]');
+              adminFromLocal = localUsers.find(u => u.national_id === 'admin' || u.username === 'admin');
+            } catch (e) { /* ignore */ }
+            const localAdminPass = adminFromLocal?.password || adminFromLocal?.record_number || '123';
+            const fallbackAdmin = {
+              id: 1, username: 'admin', email: 'admin', national_id: 'admin',
+              password: localAdminPass, record_number: localAdminPass,
+              name: adminFromLocal?.name || 'Admin', role: 'admin'
+            };
             finalUsers = [fallbackAdmin, ...normalizedRemote];
+            // أنشئ الأدمن في MongoDB حتى يكون متاحاً للأجهزة الأخرى
+            usersAPI.create(fallbackAdmin).catch(() => {});
           }
           setUsers(finalUsers);
           saveToLocalStorage('users', finalUsers);
@@ -1646,7 +1658,31 @@ export function AppDataProvider({ children }) {
       const updated = stored.map(u => String(u.id) === String(id) ? mergeAndNormalize(u) : u);
       localStorage.setItem('users', JSON.stringify(updated));
     } catch (e) { console.error(e); }
-    if (payload) usersAPI.update(id, payload).catch(err => console.error(err));
+    if (payload) {
+      // محاولة التحديث أولاً — إذا فشل (السجل غير موجود في MongoDB) نُنشئه
+      usersAPI.update(id, payload).catch(async () => {
+        try {
+          // السجل غير موجود — تحقق من MongoDB وأنشئه إذا لزم
+          const allUsers = await usersAPI.getAll().catch(() => []);
+          const existsInDB = allUsers.some(u =>
+            u.national_id === 'admin' || u.username === 'admin' || String(u.id) === String(id)
+          );
+          if (!existsInDB) {
+            // الأدمن غير موجود في MongoDB — أنشئه
+            await usersAPI.create(payload).catch(err => console.error('Failed to create admin in DB:', err));
+          } else {
+            // موجود لكن بـ ID مختلف — ابحث عنه وحدّثه
+            const dbAdmin = allUsers.find(u => u.national_id === 'admin' || u.username === 'admin');
+            if (dbAdmin) {
+              const dbId = dbAdmin._id || dbAdmin.id;
+              await usersAPI.update(dbId, payload).catch(err => console.error('Failed to update admin by DB id:', err));
+            }
+          }
+        } catch (err) {
+          console.error('Admin sync to MongoDB failed:', err);
+        }
+      });
+    }
   };
 
   const addApplicantBranch = (item) => {
