@@ -3,8 +3,6 @@ import { MongoClient, ObjectId } from 'mongodb';
 const MONGODB_URI = process.env.MONGODB_URI;
 const DB_NAME = 'monline';
 
-// Cache connection for serverless warm starts
-let cachedClient = null;
 let cachedDb = null;
 
 async function connectToDatabase() {
@@ -12,12 +10,10 @@ async function connectToDatabase() {
   if (!MONGODB_URI) throw new Error('MONGODB_URI environment variable is not set');
   const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
   await client.connect();
-  cachedClient = client;
   cachedDb = client.db(DB_NAME);
   return cachedDb;
 }
 
-// Safely convert string to ObjectId if valid 24-char hex
 function tryObjectId(id) {
   try {
     if (id && id.length === 24 && /^[a-fA-F0-9]{24}$/.test(id)) {
@@ -27,7 +23,6 @@ function tryObjectId(id) {
   return null;
 }
 
-// Build a flexible query that matches by _id OR custom id field OR username
 function buildIdQuery(id) {
   const objId = tryObjectId(id);
   if (objId) {
@@ -37,7 +32,6 @@ function buildIdQuery(id) {
 }
 
 export default async function handler(req, res) {
-  // CORS headers — allow all origins for Vercel deployment
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -45,26 +39,29 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const db = await connectToDatabase();
+    // Parse path directly from req.url for reliability across all Vercel versions
+    // req.url example: /api/users  or  /api/users/123  or  /api/users/bulk-import
+    const rawPath = req.url.split('?')[0]; // Remove query string
+    const segments = rawPath.split('/').filter(Boolean);
+    // segments: ['api', 'users'] or ['api', 'users', '123'] or ['api', 'users', 'bulk-import']
+    // segments[0] = 'api', segments[1] = collection, segments[2] = id or special
 
-    // req.query.path is the catch-all: ['users', '123'] or ['users', 'bulk-import'] etc.
-    const pathArr = Array.isArray(req.query.path)
-      ? req.query.path
-      : req.query.path ? [req.query.path] : [];
+    const collectionName = segments[1];
+    const segment2 = segments[2];
 
-    const collectionName = pathArr[0];
-    const segment2 = pathArr[1]; // could be 'bulk-import', 'all', or an id
+    // Debug info (remove after confirming it works)
+    console.log('URL:', req.url, '| collection:', collectionName, '| segment2:', segment2, '| method:', req.method);
 
     if (!collectionName) {
-      return res.status(400).json({ message: 'Collection name is required' });
+      return res.status(400).json({ message: 'Collection name is required', url: req.url, segments });
     }
 
+    const db = await connectToDatabase();
     const col = db.collection(collectionName);
 
     // ── POST /api/:collection/bulk-import ──────────────────────────────────────
     if (req.method === 'POST' && segment2 === 'bulk-import') {
       const body = req.body || {};
-      // Accept data under any common key
       const data =
         body.items || body.users || body.managers || body.coordinators ||
         body.mohfezs || body.students || body.branches || body.sessions ||
@@ -106,7 +103,6 @@ export default async function handler(req, res) {
     // ── PUT /api/:collection/:id ───────────────────────────────────────────────
     if (req.method === 'PUT' && segment2) {
       const updateData = req.body || {};
-      // Remove _id from update data to avoid immutable field error
       const { _id, ...safeUpdate } = updateData;
       const result = await col.updateOne(buildIdQuery(segment2), { $set: safeUpdate });
       if (result.matchedCount === 0) {
