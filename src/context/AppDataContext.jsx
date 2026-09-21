@@ -1661,23 +1661,20 @@ export function AppDataProvider({ children }) {
     if (payload) {
       const isAdminPayload = payload.role === 'admin' || payload.username === 'admin' || payload.national_id === 'admin';
       if (isAdminPayload) {
-        // للأدمن: دائماً ابحث في MongoDB بالـ username للحصول على الـ _id الحقيقي
+        // للأدمن: استخدم 'admin' كمعرّف — الـ API سيبحث بالـ username تلقائياً
+        // هذا أبسط وأكثر موثوقية من استخدام MongoDB _id
         (async () => {
           try {
-            const allUsers = await usersAPI.getAll().catch(() => []);
-            const dbAdmin = allUsers.find(u => u.national_id === 'admin' || u.username === 'admin');
-            if (dbAdmin) {
-              // الأدمن موجود — استخدم الـ _id الحقيقي للتحديث
-              const realId = dbAdmin._id || dbAdmin.id;
-              await usersAPI.update(realId, payload);
-              console.log('✅ Admin password updated in MongoDB using real _id:', realId);
-            } else {
-              // الأدمن غير موجود في MongoDB — أنشئه
-              await usersAPI.create(payload);
-              console.log('✅ Admin created in MongoDB with new password');
-            }
+            await usersAPI.update('admin', payload);
+            console.log('\u2705 Admin password updated in MongoDB successfully');
           } catch (err) {
-            console.error('❌ Admin sync to MongoDB failed:', err);
+            // إذا فشل التحديث (الأدمن غير موجود) — أنشئه
+            try {
+              await usersAPI.create(payload);
+              console.log('\u2705 Admin created in MongoDB with new password');
+            } catch (createErr) {
+              console.error('\u274C Admin sync to MongoDB failed:', createErr);
+            }
           }
         })();
       } else {

@@ -96,7 +96,7 @@ export default async function handler(req, res) {
     // ── GET /api/:collection/:id ───────────────────────────────────────────────
     if (req.method === 'GET' && segment2) {
       const doc = await col.findOne(buildIdQuery(segment2));
-      if (!doc) return res.status(404).json({ message: 'Not found' });
+      if (!doc) return res.status(200).json(null);
       return res.status(200).json(doc);
     }
 
@@ -104,18 +104,26 @@ export default async function handler(req, res) {
     if (req.method === 'PUT' && segment2) {
       const updateData = req.body || {};
       const { _id, ...safeUpdate } = updateData;
-      const result = await col.updateOne(buildIdQuery(segment2), { $set: safeUpdate });
-      if (result.matchedCount === 0) {
-        return res.status(404).json({ message: 'Document not found', matchedCount: 0 });
-      }
-      return res.status(200).json({ message: 'Updated successfully', modifiedCount: result.modifiedCount });
+      // استخدم upsert:true — يُحدِّث إن وُجد، يُنشئ إن لم يُوجد
+      // هذا يضمن إرجاع 200 دائماً (Vercel يستبدل 404 بـ HTML)
+      const result = await col.updateOne(
+        buildIdQuery(segment2),
+        { $set: safeUpdate },
+        { upsert: true }
+      );
+      return res.status(200).json({
+        message: result.upsertedId ? 'Created' : 'Updated',
+        modifiedCount: result.modifiedCount,
+        matchedCount: result.matchedCount,
+        upsertedId: result.upsertedId
+      });
     }
 
     // ── DELETE /api/:collection/:id ────────────────────────────────────────────
     if (req.method === 'DELETE' && segment2) {
       const result = await col.deleteOne(buildIdQuery(segment2));
       if (result.deletedCount === 0) {
-        return res.status(404).json({ message: 'Not found' });
+        return res.status(200).json({ message: 'Not found', deletedCount: 0 });
       }
       return res.status(200).json({ message: 'Deleted successfully' });
     }
