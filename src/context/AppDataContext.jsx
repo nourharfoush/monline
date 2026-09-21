@@ -300,20 +300,26 @@ export function AppDataProvider({ children }) {
     return reports;
   });
   const [users, setUsers] = useState(() => {
-    const defaultAdmin = { id: 1, username: 'admin', email: 'admin', national_id: 'admin', password: '123', record_number: '123', name: 'Admin', role: 'admin', created_at: new Date().toLocaleDateString('ar-EG') };
-    const defaultUsers = [defaultAdmin];
-    const stored = getFromLocalStorage('users', defaultUsers);
+    const stored = getFromLocalStorage('users', null);
     // توحيد بيانات المستخدمين القديمة لضمان عمل تسجيل الدخول
-    const normalized = stored.map(u => ({
-      ...u,
-      username: u.national_id || u.email || u.username || '',
-      email: u.email || u.national_id || '',
-      password: u.password || u.record_number || '',
-      record_number: u.record_number || u.password || '',
-    }));
-    // ضمان وجود مستخدم الأدمن دائماً
-    const hasAdmin = normalized.some(u => u.national_id === 'admin' || u.username === 'admin');
-    return hasAdmin ? normalized : [defaultAdmin, ...normalized];
+    if (stored && stored.length > 0) {
+      const normalized = stored.map(u => ({
+        ...u,
+        username: u.national_id || u.email || u.username || '',
+        email: u.email || u.national_id || '',
+        password: u.password || u.record_number || '',
+        record_number: u.record_number || u.password || '',
+      }));
+      // ضمان وجود مستخدم الأدمن دائماً — لكن بدون تجاوز باسورده المحفوظ
+      const hasAdmin = normalized.some(u => u.national_id === 'admin' || u.username === 'admin');
+      if (hasAdmin) return normalized;
+      // لم يوجد أدمن — نضيف الافتراضي فقط كإجراء احتياطي
+      const fallbackAdmin = { id: 1, username: 'admin', email: 'admin', national_id: 'admin', password: '123', record_number: '123', name: 'Admin', role: 'admin', created_at: new Date().toLocaleDateString('ar-EG') };
+      return [fallbackAdmin, ...normalized];
+    }
+    // لا يوجد بيانات محفوظة — سيتم جلبها من الخادم لاحقاً
+    const fallbackAdmin = { id: 1, username: 'admin', email: 'admin', national_id: 'admin', password: '123', record_number: '123', name: 'Admin', role: 'admin', created_at: new Date().toLocaleDateString('ar-EG') };
+    return [fallbackAdmin];
   });
   const [applicantBranches, setApplicantBranches] = useState(() => getFromLocalStorage('applicantBranches', []));
   const [auditLogs, setAuditLogs] = useState(() => getFromLocalStorage('auditLogs', []));
@@ -480,16 +486,28 @@ export function AppDataProvider({ children }) {
         await syncCollection(studentsAPI, students, setStudents, 'students');
         await syncCollection(branchesAPI, branches, setBranches, 'branches');
         await syncCollection(sessionsAPI, sessions, setSessions, 'sessions');
-        // Sync users but always keep the default admin account
+        // Sync users — use remote data as-is to preserve updated admin password
         const remoteUsers = await usersAPI.getAll().catch(() => null);
         if (remoteUsers) {
-          const normalizedRemote = remoteUsers.map(item => ({ ...item, id: item.id || item._id }));
-          const defaultAdmin = { id: 1, username: 'admin', email: 'admin', national_id: 'admin', password: '123', record_number: '123', name: 'Admin', role: 'admin' };
+          const normalizedRemote = remoteUsers.map(item => ({
+            ...item,
+            id: item.id || item._id,
+            password: item.password || item.record_number || '',
+            record_number: item.record_number || item.password || '',
+          }));
           const hasAdmin = normalizedRemote.some(u => u.national_id === 'admin' || u.username === 'admin');
-          const finalUsers = hasAdmin ? normalizedRemote : [defaultAdmin, ...normalizedRemote];
+          let finalUsers;
+          if (hasAdmin) {
+            // الأدمن موجود في قاعدة البيانات — نستخدم بياناته كما هي (بما فيها الباسورد الجديد)
+            finalUsers = normalizedRemote;
+          } else {
+            // لا يوجد أدمن في الخادم — نضيف الافتراضي فقط كإجراء احتياطي
+            const fallbackAdmin = { id: 1, username: 'admin', email: 'admin', national_id: 'admin', password: '123', record_number: '123', name: 'Admin', role: 'admin' };
+            finalUsers = [fallbackAdmin, ...normalizedRemote];
+          }
           setUsers(finalUsers);
           saveToLocalStorage('users', finalUsers);
-          console.log(`✓ Fetched ${finalUsers.length} users from MongoDB (admin protected)`);
+          console.log(`✓ Fetched ${finalUsers.length} users from MongoDB (admin password preserved)`);
         }
 
         await syncCollection(monthlyReportsAPI, monthlyReports, setMonthlyReports, 'monthlyReports');
