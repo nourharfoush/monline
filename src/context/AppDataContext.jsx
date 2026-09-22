@@ -495,11 +495,39 @@ export function AppDataProvider({ children }) {
             password: item.password || item.record_number || '',
             record_number: item.record_number || item.password || '',
           }));
-          const hasAdmin = normalizedRemote.some(u => u.national_id === 'admin' || u.username === 'admin');
+
+          // إزالة التكرار: إبقاء آخر سجل لكل username/national_id فقط
+          // هذا يحل مشكلة تكرار الأدمن بسبب خطأ upsert السابق
+          const seenKeys = new Map();
+          normalizedRemote.forEach(u => {
+            const key = String(u.username || u.national_id || u.email || '').trim().toLowerCase();
+            if (!key) return;
+            // نفضل السجل الذي له id أحدث (أكبر قيمة) أو الذي يحتوي على باسورد أكثر حداثة
+            const existing = seenKeys.get(key);
+            if (!existing) {
+              seenKeys.set(key, u);
+            } else {
+              // احتفظ بالسجل الذي تاريخه أحدث أو له _id أكبر
+              const existingIdStr = String(existing._id || '');
+              const currentIdStr = String(u._id || '');
+              if (currentIdStr > existingIdStr) {
+                // السجل الجديد أحدث — استخدمه لكن احتفظ بالباسورد الأحدث
+                seenKeys.set(key, { ...u, password: u.password || existing.password, record_number: u.record_number || existing.record_number });
+                // احذف السجل المكرر القديم من قاعدة البيانات
+                usersAPI.delete(existing._id || existing.id).catch(() => {});
+              } else {
+                // السجل الموجود أحدث — احذف الجديد المكرر
+                usersAPI.delete(u._id || u.id).catch(() => {});
+              }
+            }
+          });
+          const deduplicatedRemote = Array.from(seenKeys.values());
+
+          const hasAdmin = deduplicatedRemote.some(u => u.national_id === 'admin' || u.username === 'admin');
           let finalUsers;
           if (hasAdmin) {
             // الأدمن موجود في قاعدة البيانات — نستخدم بياناته كما هي (بما فيها الباسورد الجديد)
-            finalUsers = normalizedRemote;
+            finalUsers = deduplicatedRemote;
           } else {
             // الأدمن غير موجود في MongoDB — نأخذ باسورده من localStorage إن وُجد
             let adminFromLocal = null;
@@ -513,13 +541,13 @@ export function AppDataProvider({ children }) {
               password: localAdminPass, record_number: localAdminPass,
               name: adminFromLocal?.name || 'Admin', role: 'admin'
             };
-            finalUsers = [fallbackAdmin, ...normalizedRemote];
+            finalUsers = [fallbackAdmin, ...deduplicatedRemote];
             // أنشئ الأدمن في MongoDB حتى يكون متاحاً للأجهزة الأخرى
             usersAPI.create(fallbackAdmin).catch(() => {});
           }
           setUsers(finalUsers);
           saveToLocalStorage('users', finalUsers);
-          console.log(`✓ Fetched ${finalUsers.length} users from MongoDB (admin password preserved)`);
+          console.log(`✓ Fetched ${finalUsers.length} users from MongoDB (deduped, admin password preserved)`);
         }
 
         await syncCollection(monthlyReportsAPI, monthlyReports, setMonthlyReports, 'monthlyReports');

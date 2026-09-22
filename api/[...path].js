@@ -104,19 +104,33 @@ export default async function handler(req, res) {
     if (req.method === 'PUT' && segment2) {
       const updateData = req.body || {};
       const { _id, ...safeUpdate } = updateData;
-      // استخدم upsert:true — يُحدِّث إن وُجد، يُنشئ إن لم يُوجد
-      // هذا يضمن إرجاع 200 دائماً (Vercel يستبدل 404 بـ HTML)
-      const result = await col.updateOne(
-        buildIdQuery(segment2),
-        { $set: safeUpdate },
-        { upsert: true }
-      );
-      return res.status(200).json({
-        message: result.upsertedId ? 'Created' : 'Updated',
-        modifiedCount: result.modifiedCount,
-        matchedCount: result.matchedCount,
-        upsertedId: result.upsertedId
-      });
+
+      // أولاً: تحقق من وجود الوثيقة قبل الـ upsert لتفادي إنشاء سجلات مكررة
+      const existingDoc = await col.findOne(buildIdQuery(segment2));
+
+      if (existingDoc) {
+        // الوثيقة موجودة — حدِّثها مباشرة بالـ _id الفعلي لضمان تحديث نفس السجل
+        const result = await col.updateOne(
+          { _id: existingDoc._id },
+          { $set: safeUpdate }
+        );
+        return res.status(200).json({
+          message: 'Updated',
+          modifiedCount: result.modifiedCount,
+          matchedCount: result.matchedCount,
+          upsertedId: null
+        });
+      } else {
+        // الوثيقة غير موجودة — أنشئها
+        const newDoc = { ...safeUpdate };
+        const result = await col.insertOne(newDoc);
+        return res.status(200).json({
+          message: 'Created',
+          modifiedCount: 0,
+          matchedCount: 0,
+          upsertedId: result.insertedId
+        });
+      }
     }
 
     // ── DELETE /api/:collection/:id ────────────────────────────────────────────
