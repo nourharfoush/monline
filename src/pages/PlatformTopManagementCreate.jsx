@@ -18,7 +18,7 @@ function PlatformTopManagementCreate() {
   const handleChange = e => {
     const { name, value } = e.target;
     if (name === 'phone') {
-      setForm({ ...form, phone: value.replace(/\D/g, '').slice(0, 11) });
+      setForm({ ...form, phone: value.replace(/\D/g, '') });
     } else {
       setForm({ ...form, [name]: value });
     }
@@ -44,10 +44,7 @@ function PlatformTopManagementCreate() {
   }, [isEditing, itemId, platformTopManagement]);
 
   const handleSubmit = () => {
-    if (form.phone && form.phone.length !== 11) {
-      alert('رقم الهاتف يجب أن يكون مكوناً من 11 رقماً');
-      return;
-    }
+    
 
     if (!form.name || !form.national_id || !form.workplace || !form.job_grade) {
       alert('الرجاء ملء الحقول المطلوبة');
@@ -150,7 +147,7 @@ function PlatformTopManagementCreate() {
           </div>
           <div className="form-group">
             <label>التليفون <span className="req">*</span></label>
-            <input name="phone" type="text" className="form-input" placeholder="أدخل رقم التليفون" value={form.phone} onChange={handleChange} dir="ltr" maxLength="11" />
+            <input name="phone" type="text" className="form-input" placeholder="أدخل رقم التليفون" value={form.phone} onChange={handleChange} dir="ltr"  />
           </div>
           <div className="form-group">
             <label>البريد الإلكتروني</label>

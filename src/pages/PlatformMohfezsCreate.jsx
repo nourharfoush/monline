@@ -19,7 +19,7 @@ function PlatformMohfezsCreate() {
   const handleChange = e => {
     const { name, value } = e.target;
     if (name === 'phone') {
-      setForm({ ...form, phone: value.replace(/\D/g, '').slice(0, 11) });
+      setForm({ ...form, phone: value.replace(/\D/g, '') });
     } else {
       setForm({ ...form, [name]: value });
     }
@@ -51,10 +51,7 @@ function PlatformMohfezsCreate() {
   }, [isEditing, mohfezId, platformMohfezs]);
 
   const handleSubmit = () => {
-    if (form.phone && form.phone.length !== 11) {
-      alert('رقم الهاتف يجب أن يكون مكوناً من 11 رقماً');
-      return;
-    }
+    
 
     if (!form.name || !form.national_id || !form.workplace || !form.job_grade) {
       alert('الرجاء ملء الحقول المطلوبة');
@@ -155,8 +152,8 @@ function PlatformMohfezsCreate() {
           <div className="form-group">
             <label>رقم الهاتف <span className="req">*</span></label>
             <div style={{ display: 'flex' }}>
-               <span style={{ padding: '0 10px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderLeft: 'none', borderRadius: '0 6px 6px 0', display: 'flex', alignItems: 'center', direction: 'ltr' }}>+20 <img src="https://flagcdn.com/w20/eg.png" alt="Egypt" style={{ marginLeft: '5px' }}/></span>
-               <input name="phone" type="text" className="form-input" placeholder="أدخل رقم الهاتف" value={form.phone} onChange={handleChange} style={{ borderRadius: '6px 0 0 6px', flex: 1 }} dir="ltr" maxLength="11" />
+               
+               <input name="phone" type="text" className="form-input" placeholder="أدخل رقم الهاتف" value={form.phone} onChange={handleChange} style={{ borderRadius: '6px', flex: 1 }} dir="ltr"  />
             </div>
           </div>
           
