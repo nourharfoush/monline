@@ -44,6 +44,8 @@ const getCurriculumData = (rowaq, level) => {
   } else if (rowaq.includes('كبار')) {
     // نظام السنة الواحدة
     if (lvl === normalizeArabic('نظام السنة الواحدة') || lvl === normalizeArabic('السنة الواحدة')) return seniorsOneYearCurriculum;
+    // نظام العامين
+    if (lvl === normalizeArabic('نظام العامين') || lvl === normalizeArabic('عامين')) return seniorsTwoYearsCurriculum;
     // نظام الثلاث سنوات
     if (lvl === normalizeArabic('نظام الثلاث سنوات') || lvl === 'ثلاث سنوات') return seniorsThreeYearsCurriculum;
     // نظام الاربع سنوات من البقرة
