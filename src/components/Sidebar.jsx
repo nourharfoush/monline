@@ -72,6 +72,7 @@ const menuGroups = [
     items: [
       { name: 'تقارير عامة (قريباً)', icon: FileText, path: '/platform-reports' },
       { name: 'تقرير ساعات المحفظين', icon: Clock, path: '/mohfez-hours-report' },
+      { name: 'تقرير أيام عمل المنسقين', icon: Calendar, path: '/coordinator-workdays-report' },
     ]
   },
 

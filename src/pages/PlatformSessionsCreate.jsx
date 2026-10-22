@@ -15,14 +15,14 @@ const levelsForRowaq = {
 };
 
 function PlatformSessionsCreate() {
-  const { addPlatformSession, updatePlatformSession, platformMohfezs, platformSessions, rowaqs } = useAppData();
+  const { addPlatformSession, updatePlatformSession, platformMohfezs, platformCoordinators, platformSessions, rowaqs } = useAppData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('id');
   const isEditing = !!sessionId;
   
   const [form, setForm] = useState({
-    session_no: '', rowaq: '', level: '', mohfez: '',
+    session_no: '', rowaq: '', level: '', mohfez: '', coordinator: '',
     student_type: '', attendance_type: 'عن بعد', time_start: '', time_end: '',
     workDays: [], countries: [], stream_type: 'external', teams_link: ''
   });
@@ -60,6 +60,7 @@ function PlatformSessionsCreate() {
           rowaq: sessionToEdit.rowaq || '',
           level: sessionToEdit.level || '',
           mohfez: sessionToEdit.mohfez || '',
+          coordinator: sessionToEdit.coordinator || '',
           student_type: sessionToEdit.student_type || '',
           attendance_type: sessionToEdit.attendance_type || '',
           time_start: sessionToEdit.time_start || '',
@@ -180,6 +181,15 @@ function PlatformSessionsCreate() {
               <option value="">اختار المحفظ</option>
               {platformMohfezs.map(m => (
                 <option key={m.id} value={m.name}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>المنسق المشرف</label>
+            <select name="coordinator" className="form-select" value={form.coordinator} onChange={handleChange}>
+              <option value="">اختار المنسق المشرف</option>
+              {(platformCoordinators || []).map(c => (
+                <option key={c.id} value={c.name}>{c.name}</option>
               ))}
             </select>
           </div>

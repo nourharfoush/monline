@@ -107,6 +107,7 @@ function PlatformSessionsList() {
       'رقم الحلقة': s.session_no,
       'رابط الحلقة': s.teams_link || '',
       'المحفظ': s.mohfez || '',
+      'المنسق': s.coordinator || '',
       'الدول': s.countries ? s.countries.join(', ') : '',
       'الرواق': s.rowaq,
       'المستوى': s.level,
@@ -120,6 +121,7 @@ function PlatformSessionsList() {
       'رقم الحلقة': '',
       'رابط الحلقة': '',
       'المحفظ': '',
+      'المنسق': '',
       'الدول': '',
       'الرواق': '',
       'المستوى': '',
@@ -137,6 +139,7 @@ function PlatformSessionsList() {
           session_no: row['رقم الحلقة'] || Date.now().toString().slice(-8),
           teams_link: row['رابط الحلقة'] || '',
           mohfez: row['المحفظ'] || '',
+          coordinator: row['المنسق'] || '',
           countries: row['الدول'] ? row['الدول'].split(', ') : [],
           rowaq: row['الرواق'] || '',
           level: row['المستوى'] || '',
@@ -259,6 +262,7 @@ function PlatformSessionsList() {
             <tr>
               <th style={{ textAlign: 'center' }}>رقم الحلقة</th>
               <th style={{ textAlign: 'center' }}>المحفظ</th>
+              <th style={{ textAlign: 'center' }}>المنسق</th>
               <th style={{ textAlign: 'center' }}>الدولة</th>
               <th style={{ textAlign: 'center' }}>الرواق</th>
               <th style={{ textAlign: 'center' }}>المستوى</th>
@@ -271,7 +275,7 @@ function PlatformSessionsList() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
+                <td colSpan="10" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
                   لا توجد بيانات.
                 </td>
               </tr>
@@ -280,6 +284,7 @@ function PlatformSessionsList() {
                 <tr key={s.id}>
                   <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{s.session_no}</td>
                   <td style={{ textAlign: 'center' }}>{s.mohfez}</td>
+                  <td style={{ textAlign: 'center', color: s.coordinator ? 'inherit' : 'var(--text-muted)' }}>{s.coordinator || '-'}</td>
                   <td style={{ textAlign: 'center' }}>{s.countries ? s.countries.join('، ') : ''}</td>
                   <td style={{ textAlign: 'center' }}>{s.rowaq}</td>
                   <td style={{ textAlign: 'center' }}>{s.level}</td>

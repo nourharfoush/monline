@@ -25,6 +25,7 @@ import PlatformApplicantsList from './pages/PlatformApplicantsList';
 import PlatformApplicantsCreate from './pages/PlatformApplicantsCreate';
 import PlatformReports from './pages/PlatformReports';
 import MohfezHoursReport from './pages/MohfezHoursReport';
+import CoordinatorWorkdaysReport from './pages/CoordinatorWorkdaysReport';
 import UsersList from './pages/UsersList';
 import PermissionsManagement from './pages/PermissionsManagement';
 import Settings from './pages/Settings';
@@ -99,6 +100,7 @@ function DashboardLayout() {
             <Route path="/platform-applicants/create" element={<PlatformApplicantsCreate />} />
             <Route path="/platform-reports" element={<PlatformReports />} />
             <Route path="/mohfez-hours-report" element={<MohfezHoursReport />} />
+            <Route path="/coordinator-workdays-report" element={<CoordinatorWorkdaysReport />} />
             
             <Route path="/users" element={<UsersList />} />
             <Route path="/permissions" element={<PermissionsManagement />} />
