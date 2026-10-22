@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Download, Search, Clock, Users, BookOpen, BarChart2 } from 'lucide-react';
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
+import { exportMultiSheetToXLSX } from '../utils/xlsxHelper';
 
 // ─── منطق حساب مدة الحلقة وفق جدول الأزهر الشريف ─────────────────────────
 const normalizeAr = (str) => {
@@ -251,23 +252,48 @@ function MohfezHoursReport() {
   const grandSessions = reportData.reduce((s, r) => s + r.totalSessions, 0);
 
   const handleExport = () => {
-    const bom = '\uFEFF';
-    const rows = [];
+    if (reportData.length === 0) return;
+
+    // ورقة ملخص المحفظين
+    const summaryData = reportData.map((m, idx) => ({
+      'م': idx + 1,
+      'اسم المحفظ': m.mohfez,
+      'إجمالي عدد الحلقات': m.totalSessions,
+      'إجمالي الساعات': Number(m.totalHours.toFixed(1)),
+    }));
+
+    // إضافة سطر المجموع النهائي في نهاية الملخص
+    summaryData.push({
+      'م': 'المجموع',
+      'اسم المحفظ': `عدد المحفظين: ${reportData.length}`,
+      'إجمالي عدد الحلقات': grandSessions,
+      'إجمالي الساعات': Number(grandHours.toFixed(1)),
+    });
+
+    // ورقة تفاصيل كل حلقة
+    const detailsData = [];
+    let dIdx = 1;
     reportData.forEach(m => {
       m.sessions.forEach(s => {
         const bd = durationBadge(s.duration);
-        rows.push([m.mohfez, s.rowaq, s.level, s.sessionNo, s.date, s.presentCount, bd.label, s.duration]
-          .map(v => `"${v}"`).join(','));
+        detailsData.push({
+          'م': dIdx++,
+          'اسم المحفظ': m.mohfez,
+          'الرواق': s.rowaq || '-',
+          'المستوى': s.level || '-',
+          'رقم الحلقة': s.sessionNo || '-',
+          'التاريخ': s.date || '-',
+          'عدد الحضور': s.presentCount,
+          'المدة المستحقة': bd.label,
+          'الساعات': s.duration,
+        });
       });
     });
-    const csv = bom + ['اسم المحفظ,الرواق,المستوى,رقم الحلقة,التاريخ,عدد الحضور,المدة,ساعات', ...rows].join('\n');
-    const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `ساعات_المحفظين_${selMonth}-${selYear}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+    exportMultiSheetToXLSX([
+      { sheetName: 'ملخص المحفظين', data: summaryData },
+      { sheetName: 'تفاصيل الحلقات', data: detailsData }
+    ], `تقرير_ساعات_المحفظين_${selMonth}-${selYear}`);
   };
 
   if (!hasPermission('reports', 'view')) {
@@ -349,7 +375,7 @@ function MohfezHoursReport() {
           <div style={{ display:'flex', gap:'10px' }}>
             <button className="btn btn-primary" onClick={handleExport} disabled={reportData.length === 0}
               style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-              <Download size={15} /> تصدير CSV
+              <Download size={15} /> تصدير إكسيل (XLSX)
             </button>
             <button className="btn btn-outline" onClick={() => { setSelMohfez(''); setSelRowaq(''); }}>
               إعادة تعيين
