@@ -2,8 +2,9 @@ import React from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, Users, FileText, Calendar, GitBranch, 
-  BookOpen, Building, MapPin, UserPlus, FilePlus, Settings, User, LogOut, Shield, ArrowRightLeft, BookOpen as BookIcon, Award, Video, Newspaper, Archive
+  BookOpen, Building, MapPin, UserPlus, FilePlus, Settings, User, LogOut, Shield, ArrowRightLeft, BookOpen as BookIcon, Award, Video, Newspaper, Archive, Clock
 } from 'lucide-react';
+
 import './Sidebar.css';
 import { useAppData } from '../context/AppDataContext';
 
@@ -70,8 +71,10 @@ const menuGroups = [
     isPlatformOnly: true,
     items: [
       { name: 'تقارير عامة (قريباً)', icon: FileText, path: '/platform-reports' },
+      { name: 'تقرير ساعات المحفظين', icon: Clock, path: '/mohfez-hours-report' },
     ]
   },
+
   {
     title: 'إعدادات المنصة',
     isPlatformOnly: true,
