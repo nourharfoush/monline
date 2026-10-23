@@ -199,6 +199,8 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-students',
         '/platform-applicants',
         '/platform-reports',
+        '/mohfez-hours-report',
+        '/coordinator-workdays-report',
         '/users',
         '/permissions',
         '/settings'
@@ -215,7 +217,9 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-sessions',
         '/platform-students',
         '/platform-applicants',
-        '/platform-reports'
+        '/platform-reports',
+        '/mohfez-hours-report',
+        '/coordinator-workdays-report'
       ];
       return allowed.includes(path);
     }
@@ -225,7 +229,8 @@ function Sidebar({ isOpen, toggleSidebar }) {
       const allowed = [
         '/platform-dashboard',
         '/platform-sessions',
-        '/platform-students'
+        '/platform-students',
+        '/mohfez-hours-report'
       ];
       return allowed.includes(path);
     }

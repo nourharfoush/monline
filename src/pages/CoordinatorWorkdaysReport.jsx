@@ -253,6 +253,62 @@ function CoordinatorRow({ row, index, onAssignSession, platformCoordinators, can
   );
 }
 
+// ─── التحقق من إشراف المنسق على الحلقة ──────────────────────────────────────────
+const isSessionSupervisedByCoordinator = (session, user, platformCoordinators = [], users = []) => {
+  if (!session || !user) return false;
+
+  const userNormName = normalizeAr(user.name || '');
+  const userNationalId = String(user.national_id || user.username || '').trim();
+
+  // 1. التطابق المباشر مع حقل المنسق المشرف في الحلقة
+  if (session.coordinator && userNormName && normalizeAr(session.coordinator) === userNormName) {
+    return true;
+  }
+
+  // 2. التطابق عبر سجلات منسقي المنصة (بالرقم القومي أو اسم المستخدم)
+  const matchedCoordRecord = platformCoordinators.find(c => 
+    (c.national_id && String(c.national_id).trim() === userNationalId) ||
+    (c.username && String(c.username).trim() === String(user.username || '').trim()) ||
+    (c.name && normalizeAr(c.name) === userNormName)
+  );
+
+  if (matchedCoordRecord && session.coordinator) {
+    if (normalizeAr(session.coordinator) === normalizeAr(matchedCoordRecord.name || '')) {
+      return true;
+    }
+  }
+
+  // 3. التطابق عبر حقل userSession المربوط بالمستخدم الحالي
+  if (user.userSession) {
+    const sId = String(session.id);
+    const sNo = String(session.session_no || '');
+    const sName = String(session.session_name || '');
+    const uS = String(user.userSession);
+    if (sId === uS || sNo === uS || sName === uS) {
+      return true;
+    }
+  }
+
+  // 4. التطابق عبر جدول المستخدمين (users)
+  const coordUserInList = users.find(u => 
+    u.role === 'platform_coordinator' && 
+    ((u.national_id && String(u.national_id).trim() === userNationalId) ||
+     (u.username && String(u.username).trim() === String(user.username || '').trim()) ||
+     (u.name && normalizeAr(u.name) === userNormName))
+  );
+
+  if (coordUserInList?.userSession) {
+    const sId = String(session.id);
+    const sNo = String(session.session_no || '');
+    const uS = String(coordUserInList.userSession);
+    if (sId === uS || sNo === uS) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 // ─── مكوّن الصفحة الرئيسي ──────────────────────────────────────────────────────
 function CoordinatorWorkdaysReport() {
   const { 
@@ -268,13 +324,14 @@ function CoordinatorWorkdaysReport() {
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
   const role = currentUser?.role || 'admin';
   const isPlatformCoordinator = role === 'platform_coordinator';
-  const canEdit = hasPermission('sessions', 'edit') || ['admin', 'platform_admin', 'platform_supervisor'].includes(role);
+  const canEdit = !isPlatformCoordinator && (hasPermission('sessions', 'edit') || ['admin', 'platform_admin', 'platform_supervisor'].includes(role));
 
   const today = new Date();
   const [selYear,   setSelYear]   = useState(String(today.getFullYear()));
   const [selMonth,  setSelMonth]  = useState(String(today.getMonth() + 1));
   const [selCoord,  setSelCoord]  = useState('');
   const [selRowaq,  setSelRowaq]  = useState('');
+  const [selMohfez, setSelMohfez] = useState('');
 
   // قائمة أسماء المنسقين
   const coordinatorList = useMemo(() => {
@@ -285,12 +342,27 @@ function CoordinatorWorkdaysReport() {
     return Array.from(names).sort();
   }, [platformCoordinators, platformSessions, users]);
 
+  // الحلقات ذات الصلة: إذا كان منسق منصة، تقتصر فقط على الحلقات التي يشرف عليها
+  const relevantSessions = useMemo(() => {
+    if (isPlatformCoordinator) {
+      return platformSessions.filter(s => isSessionSupervisedByCoordinator(s, currentUser, platformCoordinators, users));
+    }
+    return platformSessions;
+  }, [platformSessions, isPlatformCoordinator, currentUser, platformCoordinators, users]);
+
+  // قائمة المحفظين
+  const mohfezList = useMemo(() => {
+    const names = new Set();
+    relevantSessions.forEach(s => { if (s.mohfez) names.add(s.mohfez); });
+    return Array.from(names).sort();
+  }, [relevantSessions]);
+
   // قائمة الأروقة
   const rowaqList = useMemo(() => {
     const rws = new Set();
-    platformSessions.forEach(s => { if (s.rowaq) rws.add(s.rowaq); });
+    relevantSessions.forEach(s => { if (s.rowaq) rws.add(s.rowaq); });
     return Array.from(rws).sort();
-  }, [platformSessions]);
+  }, [relevantSessions]);
 
   // قائمة السنوات المتوفرة في سجلات الغياب
   const years = useMemo(() => {
@@ -338,11 +410,21 @@ function CoordinatorWorkdaysReport() {
       const session = platformSessions.find(s => String(s.id) === String(att.sessionId));
       if (!session) return;
 
-      const coordName = getSessionCoordinator(session) || 'غير معين لمنسق';
+      // قيود المنسق: عرض الحلقات التي يشرف عليها المنسق فقط
+      if (isPlatformCoordinator) {
+        if (!isSessionSupervisedByCoordinator(session, currentUser, platformCoordinators, users)) {
+          return;
+        }
+      }
+
+      const coordName = isPlatformCoordinator
+        ? (currentUser?.name || getSessionCoordinator(session) || 'المنسق')
+        : (getSessionCoordinator(session) || 'غير معين لمنسق');
 
       // فلاتر البحث
       if (selCoord && coordName !== selCoord) return;
       if (selRowaq && session.rowaq !== selRowaq) return;
+      if (selMohfez && session.mohfez !== selMohfez) return;
       if (isPlatformCoordinator && currentUser?.name &&
           normalizeAr(coordName) !== normalizeAr(currentUser.name)) return;
 
@@ -359,8 +441,8 @@ function CoordinatorWorkdaysReport() {
         const coordInfo = platformCoordinators.find(c => normalizeAr(c.name) === normalizeAr(coordName));
         map[coordName] = {
           coordinator: coordName,
-          phone: coordInfo?.phone || '',
-          national_id: coordInfo?.national_id || '',
+          phone: coordInfo?.phone || currentUser?.phone || '',
+          national_id: coordInfo?.national_id || currentUser?.national_id || '',
           isUnassigned: coordName === 'غير معين لمنسق',
           sessions: [],
           totalSessions: 0,
@@ -392,7 +474,7 @@ function CoordinatorWorkdaysReport() {
       if (b.isUnassigned) return -1;
       return a.coordinator.localeCompare(b.coordinator, 'ar');
     });
-  }, [attendances, platformSessions, platformStudents, platformCoordinators, users, selYear, selMonth, selCoord, selRowaq, isPlatformCoordinator, currentUser]);
+  }, [attendances, platformSessions, platformStudents, platformCoordinators, users, selYear, selMonth, selCoord, selRowaq, selMohfez, isPlatformCoordinator, currentUser]);
 
   // إجماليات عامة
   const grandHours    = reportData.reduce((s, r) => s + r.totalHours, 0);
@@ -457,10 +539,14 @@ function CoordinatorWorkdaysReport() {
       });
     });
 
+    const filenamePrefix = isPlatformCoordinator
+      ? `تقرير_أيام_عمل_وساعات_المنسق_${currentUser?.name || 'منسق'}`
+      : 'تقرير_أيام_عمل_المنسقين';
+
     exportMultiSheetToXLSX([
       { sheetName: 'ملخص أيام عمل المنسقين', data: summaryData },
       { sheetName: 'تفاصيل حلقات المنسقين', data: detailsData }
-    ], `تقرير_أيام_عمل_المنسقين_${selMonth}-${selYear}`);
+    ], `${filenamePrefix}_${selMonth}-${selYear}`);
   };
 
   if (!hasPermission('reports', 'view')) {
@@ -482,20 +568,24 @@ function CoordinatorWorkdaysReport() {
       <div className="page-header" style={{ marginBottom: '24px' }}>
         <h2 style={{ textAlign: 'center', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
           <Calendar size={26} style={{ color: 'var(--accent-primary)' }} />
-          تقرير حساب أيام عمل المنسقين
+          {isPlatformCoordinator 
+            ? `تقرير حساب ساعات وأيام عمل المنسق (${currentUser?.name || 'المنسق'})`
+            : 'تقرير حساب أيام عمل المنسقين'}
         </h2>
         <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '6px', fontSize: '13px' }}>
-          يُحتسب كل 3 ساعات للحلقات التي يشرف عليها المنسق من واقع غياب الحلقة الفعلي كيوم عمل واحد (وفق معيار الأزهر الشريف)
+          {isPlatformCoordinator
+            ? 'يُحتسب كل 3 ساعات للحلقات والمحفظين الذين تشرف عليهم من واقع الحضور الفعلي كيوم عمل واحد لك (الساعات ÷ 3)'
+            : 'يُحتسب كل 3 ساعات للحلقات التي يشرف عليها المنسق من واقع غياب الحلقة الفعلي كيوم عمل واحد (وفق معيار الأزهر الشريف)'}
         </p>
       </div>
 
       {/* بطاقات الإحصاءات العلوية */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         {[
-          { icon: <BarChart2 size={26} />, color: '#3b82f6', value: grandSessions, label: 'إجمالي الحلقات المنعقدة' },
-          { icon: <Clock size={26} />,     color: '#f59e0b', value: grandHours.toFixed(1) + ' ساعة', label: 'إجمالي الساعات المنفذة' },
-          { icon: <CheckCircle size={26} />, color: '#10b981', value: formatWorkDays(grandWorkDays), label: 'إجمالي أيام العمل المحتسبة' },
-          { icon: <Users size={26} />,     color: '#8b5cf6', value: reportData.length, label: 'عدد المنسقين' },
+          { icon: <BarChart2 size={26} />, color: '#3b82f6', value: grandSessions, label: isPlatformCoordinator ? 'إجمالي الحلقات المشرف عليها' : 'إجمالي الحلقات المنعقدة' },
+          { icon: <Clock size={26} />,     color: '#f59e0b', value: grandHours.toFixed(1) + ' ساعة', label: isPlatformCoordinator ? 'إجمالي ساعات الحلقات' : 'إجمالي الساعات المنفذة' },
+          { icon: <CheckCircle size={26} />, color: '#10b981', value: formatWorkDays(grandWorkDays), label: isPlatformCoordinator ? 'أيام العمل المحتسبة لك' : 'إجمالي أيام العمل المحتسبة' },
+          { icon: <Users size={26} />,     color: '#8b5cf6', value: isPlatformCoordinator ? (currentUser?.name || 'المنسق') : reportData.length, label: isPlatformCoordinator ? 'المنسق المشرف' : 'عدد المنسقين', small: isPlatformCoordinator },
           { icon: <BookOpen size={26} />,  color: '#ec4899', value: monthLabel, label: 'الفترة المحددة', small: true },
         ].map((c, i) => (
           <div key={i} className="box-card" style={{ padding: '20px', borderTop: `3px solid ${c.color}`, textAlign: 'center' }}>
@@ -534,6 +624,13 @@ function CoordinatorWorkdaysReport() {
             </div>
           )}
           <div className="form-group" style={{ minWidth: '190px', flex: 1 }}>
+            <label>{isPlatformCoordinator ? 'المحفظ المشرف عليه' : 'المحفظ'}</label>
+            <select className="form-select" value={selMohfez} onChange={e => setSelMohfez(e.target.value)}>
+              <option value="">كل المحفظين</option>
+              {mohfezList.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="form-group" style={{ minWidth: '190px', flex: 1 }}>
             <label>الرواق</label>
             <select className="form-select" value={selRowaq} onChange={e => setSelRowaq(e.target.value)}>
               <option value="">كل الأروقة</option>
@@ -551,7 +648,7 @@ function CoordinatorWorkdaysReport() {
             </button>
             <button 
               className="btn btn-outline" 
-              onClick={() => { setSelCoord(''); setSelRowaq(''); }}
+              onClick={() => { setSelCoord(''); setSelRowaq(''); setSelMohfez(''); }}
             >
               إعادة تعيين
             </button>
@@ -603,7 +700,16 @@ function CoordinatorWorkdaysReport() {
             {reportData.length === 0 ? (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '50px' }}>
-                  لا توجد جلسات غياب مسجلة مطابقة للفلاتر المحددة في هذا الشهر.
+                  {isPlatformCoordinator ? (
+                    <>
+                      <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                        لا توجد حلقات أو جلسات مسجلة لك خلال هذا الشهر ({monthLabel}).
+                      </div>
+                      <small style={{ fontSize: '12px' }}>تأكد من اختيار الشهر المطلوب، أو التحقق من تعيين الحلقات لإشرافك في صفحة الحلقات.</small>
+                    </>
+                  ) : (
+                    'لا توجد جلسات غياب مسجلة مطابقة للفلاتر المحددة في هذا الشهر.'
+                  )}
                 </td>
               </tr>
             ) : (

@@ -79,6 +79,62 @@ const durationBadge = (d) => {
   return              { bg:'rgba(16,185,129,.15)',  color:'#10b981', label:'ساعة ونصف' };
 };
 
+// ─── التحقق من إشراف المنسق على الحلقة ──────────────────────────────────────────
+const isSessionSupervisedByCoordinator = (session, user, platformCoordinators = [], users = []) => {
+  if (!session || !user) return false;
+
+  const userNormName = normalizeAr(user.name || '');
+  const userNationalId = String(user.national_id || user.username || '').trim();
+
+  // 1. التطابق المباشر مع حقل المنسق المشرف في الحلقة
+  if (session.coordinator && userNormName && normalizeAr(session.coordinator) === userNormName) {
+    return true;
+  }
+
+  // 2. التطابق عبر سجلات منسقي المنصة (بالرقم القومي أو اسم المستخدم)
+  const matchedCoordRecord = platformCoordinators.find(c => 
+    (c.national_id && String(c.national_id).trim() === userNationalId) ||
+    (c.username && String(c.username).trim() === String(user.username || '').trim()) ||
+    (c.name && normalizeAr(c.name) === userNormName)
+  );
+
+  if (matchedCoordRecord && session.coordinator) {
+    if (normalizeAr(session.coordinator) === normalizeAr(matchedCoordRecord.name || '')) {
+      return true;
+    }
+  }
+
+  // 3. التطابق عبر حقل userSession المربوط بالمستخدم الحالي
+  if (user.userSession) {
+    const sId = String(session.id);
+    const sNo = String(session.session_no || '');
+    const sName = String(session.session_name || '');
+    const uS = String(user.userSession);
+    if (sId === uS || sNo === uS || sName === uS) {
+      return true;
+    }
+  }
+
+  // 4. التطابق عبر جدول المستخدمين (users)
+  const coordUserInList = users.find(u => 
+    u.role === 'platform_coordinator' && 
+    ((u.national_id && String(u.national_id).trim() === userNationalId) ||
+     (u.username && String(u.username).trim() === String(user.username || '').trim()) ||
+     (u.name && normalizeAr(u.name) === userNormName))
+  );
+
+  if (coordUserInList?.userSession) {
+    const sId = String(session.id);
+    const sNo = String(session.session_no || '');
+    const uS = String(coordUserInList.userSession);
+    if (sId === uS || sNo === uS) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 // ─── مكوّن صف المحفظ مع التفاصيل ──────────────────────────────────────────────
 function MohfezRow({ row, idx }) {
   const [open, setOpen] = useState(false);
@@ -171,11 +227,12 @@ function MohfezRow({ row, idx }) {
 
 // ─── مكوّن الصفحة الرئيسي ──────────────────────────────────────────────────────
 function MohfezHoursReport() {
-  const { platformSessions, platformStudents, attendances, hasPermission } = useAppData();
+  const { platformSessions, platformStudents, platformCoordinators = [], users = [], attendances, hasPermission } = useAppData();
 
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
   const role = currentUser?.role || 'admin';
   const isPlatformMohfez = role === 'platform_mohfez';
+  const isPlatformCoordinator = role === 'platform_coordinator';
 
   const today = new Date();
   const [selYear,   setSelYear]   = useState(String(today.getFullYear()));
@@ -183,17 +240,25 @@ function MohfezHoursReport() {
   const [selMohfez, setSelMohfez] = useState('');
   const [selRowaq,  setSelRowaq]  = useState('');
 
+  // الحلقات ذات الصلة: إذا كان منسق منصة، تقتصر فقط على الحلقات التي يشرف عليها
+  const relevantSessions = useMemo(() => {
+    if (isPlatformCoordinator) {
+      return platformSessions.filter(s => isSessionSupervisedByCoordinator(s, currentUser, platformCoordinators, users));
+    }
+    return platformSessions;
+  }, [platformSessions, isPlatformCoordinator, currentUser, platformCoordinators, users]);
+
   const mohfezList = useMemo(() => {
     const names = new Set();
-    platformSessions.forEach(s => { if (s.mohfez) names.add(s.mohfez); });
+    relevantSessions.forEach(s => { if (s.mohfez) names.add(s.mohfez); });
     return Array.from(names).sort();
-  }, [platformSessions]);
+  }, [relevantSessions]);
 
   const rowaqList = useMemo(() => {
     const rws = new Set();
-    platformSessions.forEach(s => { if (s.rowaq) rws.add(s.rowaq); });
+    relevantSessions.forEach(s => { if (s.rowaq) rws.add(s.rowaq); });
     return Array.from(rws).sort();
-  }, [platformSessions]);
+  }, [relevantSessions]);
 
   const years = useMemo(() => {
     const ys = new Set([String(today.getFullYear())]);
@@ -219,6 +284,12 @@ function MohfezHoursReport() {
     monthlyAtts.forEach(att => {
       const session = platformSessions.find(s => String(s.id) === String(att.sessionId));
       if (!session) return;
+
+      // قيود المنسق: عرض الحلقات التي يشرف عليها المنسق فقط
+      if (isPlatformCoordinator && !isSessionSupervisedByCoordinator(session, currentUser, platformCoordinators, users)) {
+        return;
+      }
+
       const mohfezName = session.mohfez || '-';
 
       if (selMohfez && mohfezName !== selMohfez) return;
@@ -246,7 +317,7 @@ function MohfezHoursReport() {
     });
 
     return Object.values(map).sort((a, b) => a.mohfez.localeCompare(b.mohfez, 'ar'));
-  }, [attendances, platformSessions, platformStudents, selYear, selMonth, selMohfez, selRowaq, isPlatformMohfez, currentUser]);
+  }, [attendances, platformSessions, platformStudents, selYear, selMonth, selMohfez, selRowaq, isPlatformMohfez, isPlatformCoordinator, currentUser, platformCoordinators, users]);
 
   const grandHours    = reportData.reduce((s, r) => s + r.totalHours, 0);
   const grandSessions = reportData.reduce((s, r) => s + r.totalSessions, 0);
@@ -290,10 +361,14 @@ function MohfezHoursReport() {
       });
     });
 
+    const filenamePrefix = isPlatformCoordinator
+      ? `تقرير_ساعات_محفظي_المنسق_${currentUser?.name || 'منسق'}`
+      : 'تقرير_ساعات_المحفظين';
+
     exportMultiSheetToXLSX([
       { sheetName: 'ملخص المحفظين', data: summaryData },
       { sheetName: 'تفاصيل الحلقات', data: detailsData }
-    ], `تقرير_ساعات_المحفظين_${selMonth}-${selYear}`);
+    ], `${filenamePrefix}_${selMonth}-${selYear}`);
   };
 
   if (!hasPermission('reports', 'view')) {
@@ -315,19 +390,23 @@ function MohfezHoursReport() {
       <div className="page-header" style={{ marginBottom:'24px' }}>
         <h2 style={{ textAlign:'center', width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'10px' }}>
           <Clock size={24} style={{ color:'var(--accent-primary)' }} />
-          تقرير حساب الساعات الشهري للمحفظ
+          {isPlatformCoordinator 
+            ? `تقرير ساعات المحفظين المشرف عليهم (${currentUser?.name || 'المنسق'})`
+            : 'تقرير حساب الساعات الشهري للمحفظ'}
         </h2>
         <p style={{ textAlign:'center', color:'var(--text-muted)', marginTop:'6px', fontSize:'13px' }}>
-          يُحسب وقت الجلسة تلقائياً وفق جدول المدة الزمنية لحلقات الجامع الأزهر الشريف
+          {isPlatformCoordinator
+            ? 'عرض ساعات الحلقات والجلسات المنفذة للمحفظين الخاضعين لإشرافك وفق جدول المدة الزمنية للأزهر الشريف'
+            : 'يُحسب وقت الجلسة تلقائياً وفق جدول المدة الزمنية لحلقات الجامع الأزهر الشريف'}
         </p>
       </div>
 
       {/* بطاقات الإجمالي */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))', gap:'16px', marginBottom:'24px' }}>
         {[
-          { icon:<BarChart2 size={26} />, color:'#3b82f6', value: grandSessions,           label:'إجمالي الجلسات' },
-          { icon:<Clock size={26} />,     color:'#10b981', value: grandHours.toFixed(1)+' ساعة', label:'إجمالي الساعات' },
-          { icon:<Users size={26} />,     color:'#f59e0b', value: reportData.length,        label:'عدد المحفظين' },
+          { icon:<BarChart2 size={26} />, color:'#3b82f6', value: grandSessions,           label: isPlatformCoordinator ? 'إجمالي الجلسات المشرف عليها' : 'إجمالي الجلسات' },
+          { icon:<Clock size={26} />,     color:'#10b981', value: grandHours.toFixed(1)+' ساعة', label: isPlatformCoordinator ? 'إجمالي ساعات المحفظين' : 'إجمالي الساعات' },
+          { icon:<Users size={26} />,     color:'#f59e0b', value: reportData.length,        label: isPlatformCoordinator ? 'المحفظين المشرف عليهم' : 'عدد المحفظين' },
           { icon:<BookOpen size={26} />,  color:'#8b5cf6', value: monthLabel,               label:'الفترة المحددة', small:true },
         ].map((c, i) => (
           <div key={i} className="box-card" style={{ padding:'20px', borderTop:`3px solid ${c.color}`, textAlign:'center' }}>
@@ -358,7 +437,7 @@ function MohfezHoursReport() {
           </div>
           {!isPlatformMohfez && (
             <div className="form-group" style={{ minWidth:'190px', flex:1 }}>
-              <label>المحفظ</label>
+              <label>{isPlatformCoordinator ? 'المحفظ المشرف عليه' : 'المحفظ'}</label>
               <select className="form-select" value={selMohfez} onChange={e => setSelMohfez(e.target.value)}>
                 <option value="">كل المحفظين</option>
                 {mohfezList.map(m => <option key={m} value={m}>{m}</option>)}
@@ -432,8 +511,19 @@ function MohfezHoursReport() {
               {reportData.length === 0 ? (
                 <tr>
                   <td colSpan="6" style={{ textAlign:'center', color:'var(--text-muted)', padding:'60px' }}>
-                    لا توجد بيانات حضور مسجّلة لهذا الشهر.<br />
-                    <small style={{ fontSize:'12px' }}>تأكد من تسجيل بيانات الحضور في صفحة كل حلقة.</small>
+                    {isPlatformCoordinator ? (
+                      <>
+                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                          لا توجد بيانات ساعات مسجلة للمحفظين المشرف عليهم لهذا الشهر ({monthLabel}).
+                        </div>
+                        <small style={{ fontSize:'12px' }}>تأكد من اختيار الشهر المطلوب، أو مراجعة تسجيل حضور حلقاتك المشرف عليها.</small>
+                      </>
+                    ) : (
+                      <>
+                        لا توجد بيانات حضور مسجّلة لهذا الشهر.<br />
+                        <small style={{ fontSize:'12px' }}>تأكد من تسجيل بيانات الحضور في صفحة كل حلقة.</small>
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (
