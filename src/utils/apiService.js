@@ -167,6 +167,16 @@ export const applicantBranchesAPI = {
   bulkImport: (items) => apiCall('/applicantbranches/bulk-import', { method: 'POST', body: { items } })
 };
 
+// Attendances API
+export const attendancesAPI = {
+  getAll: () => apiCall('/attendances'),
+  create: (data) => apiCall('/attendances', { method: 'POST', body: data }),
+  update: (id, data) => apiCall(`/attendances/${id}`, { method: 'PUT', body: data }),
+  delete: (id) => apiCall(`/attendances/${id}`, { method: 'DELETE' }),
+  deleteAll: () => apiCall('/attendances/all', { method: 'DELETE' }),
+  bulkImport: (items) => apiCall('/attendances/bulk-import', { method: 'POST', body: { items } })
+};
+
 // Session Reports API
 export const sessionReportsAPI = {
   getAll: () => apiCall('/sessionreports'),

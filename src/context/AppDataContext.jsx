@@ -3,7 +3,7 @@ import egyptCenters from '../data/egyptCenters';
 import {
   managersAPI, coordinatorsAPI, mohfezsAPI, studentsAPI, branchesAPI, sessionsAPI, usersAPI,
   monthlyReportsAPI, followUpReportsAPI, applicantsAPI, rowaqsAPI, applicantBranchesAPI,
-  sessionReportsAPI, platformTopManagementAPI, platformSupervisorsAPI, platformCoordinatorsAPI,
+  attendancesAPI, sessionReportsAPI, platformTopManagementAPI, platformSupervisorsAPI, platformCoordinatorsAPI,
   platformMohfezsAPI, platformSessionsAPI, platformStudentsAPI, platformApplicantsAPI,
   platformRowaqsAPI, administrationsAPI, rolePermissionsAPI,
   shariaCoursesAPI, shariaBranchesAPI, shariaStudentsAPI, shariaTeachersAPI, shariaLivesAPI, shariaDailyReportsAPI, shariaNewsAPI
@@ -555,6 +555,7 @@ export function AppDataProvider({ children }) {
         await syncCollection(applicantsAPI, applicants, setApplicants, 'applicants');
         await syncCollection(rowaqsAPI, rowaqs, setRowaqs, 'rowaqs');
         await syncCollection(applicantBranchesAPI, applicantBranches, setApplicantBranches, 'applicantBranches');
+        await syncCollection(attendancesAPI, attendances, setAttendances, 'attendances');
         await syncCollection(sessionReportsAPI, sessionReports, setSessionReports, 'sessionReports');
 
         await syncCollection(platformTopManagementAPI, platformTopManagement, setPlatformTopManagement, 'platformTopManagement');
@@ -1731,10 +1732,12 @@ export function AppDataProvider({ children }) {
   const addAttendance = (attendance) => {
     const newAttendance = { ...attendance, id: String(Date.now()) };
     setAttendances(prev => [...prev, newAttendance]);
+    attendancesAPI.create(newAttendance).catch(err => console.error(err));
   };
   const deleteAttendance = (id) => {
     if (window.confirm('هل أنت متأكد من عملية الحذف؟')) {
       setAttendances(prev => prev.filter(a => String(a.id) !== String(id)));
+      attendancesAPI.delete(id).catch(err => console.error(err));
     }
   };
 
