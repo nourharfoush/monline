@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, Users, FileText, Calendar, GitBranch, 
-  BookOpen, Building, MapPin, UserPlus, FilePlus, Settings, User, LogOut, Shield, ArrowRightLeft, BookOpen as BookIcon, Award, Video, Newspaper, Archive, Clock
+  BookOpen, Building, MapPin, UserPlus, FilePlus, Settings, User, LogOut, Shield, ArrowRightLeft, BookOpen as BookIcon, Award, Video, Newspaper, Archive, Clock, UserX
 } from 'lucide-react';
 
 import './Sidebar.css';
@@ -70,9 +70,10 @@ const menuGroups = [
     title: 'التقارير',
     isPlatformOnly: true,
     items: [
-      { name: 'تقارير عامة (قريباً)', icon: FileText, path: '/platform-reports' },
+      { name: 'بوابة التقارير', icon: FileText, path: '/platform-reports' },
       { name: 'تقرير ساعات المحفظين', icon: Clock, path: '/mohfez-hours-report' },
       { name: 'تقرير أيام عمل المنسقين', icon: Calendar, path: '/coordinator-workdays-report' },
+      { name: 'تقرير غياب الدارسين', icon: UserX, path: '/student-absence-report' },
     ]
   },
 
@@ -201,6 +202,7 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-reports',
         '/mohfez-hours-report',
         '/coordinator-workdays-report',
+        '/student-absence-report',
         '/users',
         '/permissions',
         '/settings'
@@ -219,7 +221,8 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-applicants',
         '/platform-reports',
         '/mohfez-hours-report',
-        '/coordinator-workdays-report'
+        '/coordinator-workdays-report',
+        '/student-absence-report'
       ];
       return allowed.includes(path);
     }
@@ -230,7 +233,8 @@ function Sidebar({ isOpen, toggleSidebar }) {
         '/platform-dashboard',
         '/platform-sessions',
         '/platform-students',
-        '/mohfez-hours-report'
+        '/mohfez-hours-report',
+        '/student-absence-report'
       ];
       return allowed.includes(path);
     }

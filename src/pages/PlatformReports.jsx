@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Calendar, ArrowLeft, FileText, CheckCircle2 } from 'lucide-react';
+import { Clock, Calendar, ArrowLeft, FileText, CheckCircle2, UserX } from 'lucide-react';
 import '../components/Management.css';
 
 function PlatformReports() {
@@ -18,7 +18,7 @@ function PlatformReports() {
         </h2>
         <p style={{ color: 'var(--text-muted)', marginTop: '6px', fontSize: '14px' }}>
           {isPlatformCoordinator
-            ? `مرحباً بك ${currentUser?.name || ''}، يمكنك متابعة تقرير أيام عملك وساعات المحفظين المشرف على حلقاتهم أدناه:`
+            ? `مرحباً بك ${currentUser?.name || ''}، يمكنك متابعة تقارير أيام العمل وساعات المحفظين وحضور وغياب الدارسين المشرف عليهم:`
             : 'اختر التقرير المطلوب للاطلاع على الإحصائيات وتفاصيل الجلسات وتصدير البيانات:'}
         </p>
       </div>
@@ -91,6 +91,37 @@ function PlatformReports() {
             </Link>
           </div>
         )}
+
+        {/* بطاقة تقرير متابعة غياب وحضور الدارسين */}
+        <div className="box-card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderTop: '4px solid #ef4444', borderRadius: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', padding: '14px', borderRadius: '12px' }}>
+                <UserX size={28} />
+              </div>
+              <span style={{ fontSize: '12px', background: 'var(--bg-secondary)', padding: '4px 10px', borderRadius: '12px', color: 'var(--text-muted)' }}>
+                دوري / شهري
+              </span>
+            </div>
+            <h3 style={{ fontSize: '18px', color: 'var(--text-primary)', marginBottom: '10px' }}>
+              تقرير غياب وحضور الدارسين
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', lineHeight: '1.7', marginBottom: '20px' }}>
+              متابعة دقيقة لنسب الحضور وسجلات الغياب للدارسين، ورصد المعرضين للإنذارات وتجاوز نسب الغياب القانونية.
+            </p>
+            <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '24px' }}>
+              <CheckCircle2 size={15} style={{ color: '#10b981' }} />
+              سجل تفصيلي بالتواريخ + تنبيهات الإنذار والحرمان
+            </div>
+          </div>
+          <Link 
+            to="/student-absence-report" 
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', padding: '12px', fontWeight: 'bold' }}
+          >
+            فتح تقرير غياب الدارسين <ArrowLeft size={16} />
+          </Link>
+        </div>
       </div>
     </div>
   );
