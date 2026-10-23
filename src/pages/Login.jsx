@@ -145,6 +145,35 @@ function Login() {
           if (!foundUser.role) foundUser.role = 'mohfez';
         }
       }
+
+      // إلحاق بيانات دارس المنصة وربطه بحلقته
+      if (foundUser.role === 'student' || !foundUser.role) {
+        const matchedStudent = platformStudents.find(st =>
+          String(st.passport_no || st.national_id || '').trim() === nationalId ||
+          (foundUser.name && normalizeArabic(st.name) === normalizeArabic(foundUser.name))
+        );
+        if (matchedStudent) {
+          foundUser.role = 'student';
+          foundUser.userSession = foundUser.userSession || matchedStudent.session_id || matchedStudent.session_no || '';
+          if (!foundUser.name) foundUser.name = matchedStudent.name;
+        }
+      }
+
+      // إلحاق اسم منسق المنصة أو محفظ المنصة إن لم يكن مسجلاً
+      if (foundUser.role === 'platform_coordinator') {
+        const pc = platformCoordinators.find(c =>
+          String(c.national_id || '').trim() === nationalId ||
+          (foundUser.name && normalizeArabic(c.name) === normalizeArabic(foundUser.name))
+        );
+        if (pc && !foundUser.name) foundUser.name = pc.name;
+      }
+      if (foundUser.role === 'platform_mohfez') {
+        const pm = platformMohfezs.find(m =>
+          String(m.national_id || '').trim() === nationalId ||
+          (foundUser.name && normalizeArabic(m.name) === normalizeArabic(foundUser.name))
+        );
+        if (pm && !foundUser.name) foundUser.name = pm.name;
+      }
     } else {
       console.log('🔍 لم يُعثر عليه في المستخدمين، جاري البحث في بيانات النظام...');
 

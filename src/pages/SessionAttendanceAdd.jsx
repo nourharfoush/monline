@@ -2,18 +2,41 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
+import { isUserAllowedSession } from '../utils/userScopeHelper';
 
 function SessionAttendanceAdd() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const isPlatform = location.pathname.startsWith('/platform-sessions');
-  const { sessions, platformSessions, students, platformStudents, addAttendance } = useAppData();
+  const { 
+    sessions, 
+    platformSessions, 
+    students, 
+    platformStudents, 
+    addAttendance, 
+    hasPermission,
+    platformCoordinators = [],
+    platformMohfezs = [],
+    users = []
+  } = useAppData();
+  
+  const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+  const role = currentUser ? currentUser.role : 'admin';
+  const isSuperAdmin = role === 'admin';
+  const isStudent = role === 'student' || role === 'sharia_student';
   
   const sessionId = id;
   const session = isPlatform
     ? platformSessions.find(s => String(s.id) === String(id))
     : sessions.find(s => String(s.id) === String(id));
+
+  const isAllowed = isSuperAdmin || (
+    !isStudent && 
+    hasPermission('sessions', 'edit') && 
+    session && 
+    isUserAllowedSession(session, currentUser, { platformCoordinators, platformMohfezs, platformStudents, users })
+  );
   
   const normalizeArabic = (str) => {
     if (!str) return '';
@@ -155,6 +178,17 @@ function SessionAttendanceAdd() {
     alert('تم حفظ الغياب بنجاح');
     navigate(isPlatform ? `/platform-sessions/${sessionId}/attendance` : `/sessions/${sessionId}/attendance`);
   };
+
+  if (!isAllowed) {
+    return (
+      <div className="management-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <div className="box-card" style={{ textAlign: 'center', maxWidth: '500px', padding: '40px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+          <h3 style={{ color: '#ef4444', marginBottom: '15px' }}>عذراً، ليس لديك صلاحية لتسجيل الغياب في هذه الحلقة</h3>
+          <p style={{ color: 'var(--text-secondary)' }}>لا يمكن إضافة الغياب إلا بواسطة المحفظ أو المنسق المسؤول عن هذه الحلقة أو إدارة النظام.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="management-page">

@@ -1,53 +1,39 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Plus, Download, Upload, Edit, Trash2, ClipboardCheck, FileText, Video } from 'lucide-react';
+import { Search, Plus, Download, Upload, Edit, Trash2, ClipboardCheck, FileText, Video, Play } from 'lucide-react';
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
 import { exportToXLSX, importFromXLSX } from '../utils/xlsxHelper';
+import { filterSessionsForUser } from '../utils/userScopeHelper';
 import { countriesList } from '../data/countries';
 import JitsiMeeting from '../components/JitsiMeeting';
 
 function PlatformSessionsList() {
-  const { platformSessions, deletePlatformSession, addPlatformSession, rowaqs, hasPermission, deleteAllPlatformSessions } = useAppData();
+  const { 
+    platformSessions, 
+    deletePlatformSession, 
+    addPlatformSession, 
+    rowaqs, 
+    hasPermission, 
+    deleteAllPlatformSessions,
+    platformCoordinators = [],
+    platformMohfezs = [],
+    platformStudents = [],
+    users = []
+  } = useAppData();
   const importRef = useRef(null);
   const [searchParams] = useSearchParams();
   
   // Get current user and role
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
   const role = currentUser ? currentUser.role : 'admin';
-  const userSession = currentUser ? currentUser.userSession : '';
-
-  const isPlatformRestricted = ['platform_coordinator', 'platform_mohfez', 'student'].includes(role);
+  const isStudent = role === 'student' || role === 'sharia_student';
 
   const [filterCountry, setFilterCountry] = useState('');
   const [filterRowaq, setFilterRowaq] = useState('');
   const [filterStudentType, setFilterStudentType] = useState('');
   const [filterActiveNow, setFilterActiveNow] = useState(searchParams.get('active') === 'true');
   const [activeMeeting, setActiveMeeting] = useState(null);
-
-  const normalizeArabic = (str) => {
-    if (!str) return '';
-    return str
-      .toString()
-      .trim()
-      .normalize('NFKD')
-      .normalize('NFC')
-      .replace(/ً/g, '')
-      .replace(/ٌ/g, '')
-      .replace(/ٍ/g, '')
-      .replace(/َ/g, '')
-      .replace(/ُ/g, '')
-      .replace(/ِ/g, '')
-      .replace(/ّ/g, '')
-      .replace(/ْ/g, '')
-      .replace(/[أإآا]/g, 'ا')
-      .replace(/[ىي]/g, 'ي')
-      .replace(/[ة]/g, 'ه')
-      .replace(/[ـ]/g, '')
-      .replace(/\s+/g, ' ')
-      .toLowerCase()
-      .trim();
-  };
 
   const formatTimeTo12Hour = (timeStr) => {
     if (!timeStr) return '';
@@ -63,16 +49,18 @@ function PlatformSessionsList() {
     return `${hourFormatted}:${minutes} ${ampm}`;
   };
 
-  const filtered = platformSessions.filter(s => {
-    // 1. Geographic / session role restriction
-    if (role === 'platform_mohfez') {
-      if (currentUser.name && normalizeArabic(s.mohfez) !== normalizeArabic(currentUser.name)) return false;
-    }
-    if (isPlatformRestricted && userSession) {
-      if (String(s.id) !== String(userSession) && s.session_name !== userSession && s.session_no !== userSession) return false;
-    }
+  // 1. فلترة الحلقات بدقة حسب صلاحية ونطاق المستخدم (منسق، محفظ، دارس)
+  const scopedSessions = useMemo(() => {
+    return filterSessionsForUser(platformSessions, currentUser, {
+      platformCoordinators,
+      platformMohfezs,
+      platformStudents,
+      users
+    });
+  }, [platformSessions, currentUser, platformCoordinators, platformMohfezs, platformStudents, users]);
 
-    // 2. Normal filters
+  // 2. تطبيق فلاتر واجهة المستخدم
+  const filtered = scopedSessions.filter(s => {
     if (filterCountry && !(s.countries && s.countries.includes(filterCountry))) return false;
     if (filterRowaq && s.rowaq !== filterRowaq) return false;
     if (filterStudentType && s.student_type !== filterStudentType) return false;
@@ -295,9 +283,11 @@ function PlatformSessionsList() {
                     <Link to={`/platform-sessions/${s.id}/attendance`} title="الغياب" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', textDecoration: 'none' }}>
                       <ClipboardCheck size={14}/> الغياب
                     </Link>
-                    <Link to={`/platform-sessions/${s.id}/reports`} title="التقارير اليومية" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', textDecoration: 'none' }}>
-                      <FileText size={14}/> التقارير
-                    </Link>
+                    {!isStudent && (
+                      <Link to={`/platform-sessions/${s.id}/reports`} title="التقارير اليومية" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', textDecoration: 'none' }}>
+                        <FileText size={14}/> التقارير
+                      </Link>
+                    )}
                     {hasPermission('sessions', 'edit') && (
                       <Link to={`/platform-sessions/create?id=${s.id}`} className="action-icon edit" style={{textDecoration: 'none', color: 'inherit'}} title="تعديل"><Edit size={16}/></Link>
                     )}

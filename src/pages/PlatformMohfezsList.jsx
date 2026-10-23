@@ -1,12 +1,23 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Plus, Download, Upload, Edit, Trash2 } from 'lucide-react';
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
 import { exportToXLSX, importFromXLSX } from '../utils/xlsxHelper';
+import { filterMohfezsForUser } from '../utils/userScopeHelper';
 
 function PlatformMohfezsList() {
-  const { platformMohfezs, deletePlatformMohfez, addPlatformMohfez, hasPermission, platformSessions, deleteAllPlatformMohfezs } = useAppData();
+  const { 
+    platformMohfezs, 
+    deletePlatformMohfez, 
+    addPlatformMohfez, 
+    hasPermission, 
+    platformSessions, 
+    deleteAllPlatformMohfezs,
+    platformCoordinators = [],
+    platformStudents = [],
+    users = []
+  } = useAppData();
   const importRef = useRef(null);
 
   const getStatusStyle = (status) => {
@@ -66,28 +77,23 @@ function PlatformMohfezsList() {
   
   // Get current user and role
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
-  const role = currentUser ? currentUser.role : 'admin';
-  const userSession = currentUser ? currentUser.userSession : '';
-
-  const isPlatformRestricted = ['platform_coordinator', 'platform_mohfez', 'student'].includes(role);
 
   const [filterName, setFilterName] = useState('');
   const [filterNationalId, setFilterNationalId] = useState('');
   const [filterEmail, setFilterEmail] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
-  const filtered = platformMohfezs.filter(m => {
-    // 1. Geographic/session role restriction
-    if (isPlatformRestricted && userSession) {
-      const matchingSession = platformSessions.find(s => String(s.id) === String(userSession) || s.session_name === userSession || s.session_no === userSession);
-      if (matchingSession && matchingSession.mohfez) {
-        if (m.name !== matchingSession.mohfez) return false;
-      } else {
-        if (role === 'platform_mohfez' && currentUser && m.name !== currentUser.name) return false;
-      }
-    }
+  // تصفية المحفظين وفق نطاق المستخدم (المنسق يرى محفظي حلقاته، المحفظ يرى نفسه فقط)
+  const scopedMohfezs = useMemo(() => {
+    return filterMohfezsForUser(platformMohfezs, currentUser, {
+      platformSessions,
+      platformCoordinators,
+      platformStudents,
+      users
+    });
+  }, [platformMohfezs, currentUser, platformSessions, platformCoordinators, platformStudents, users]);
 
-    // 2. Normal filters
+  const filtered = scopedMohfezs.filter(m => {
     return (
       (filterName ? m.name?.includes(filterName) : true) &&
       (filterNationalId ? m.national_id?.includes(filterNationalId) : true) &&

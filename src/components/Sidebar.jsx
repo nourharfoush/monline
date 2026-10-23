@@ -241,7 +241,7 @@ function Sidebar({ isOpen, toggleSidebar }) {
 
     // 4. student
     if (userRole === 'student') {
-      return ['/platform-dashboard'].includes(path);
+      return ['/platform-dashboard', '/platform-sessions'].includes(path);
     }
 
     // 5. rowaq_admin / rowaq_manager

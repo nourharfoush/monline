@@ -6,6 +6,7 @@ import StatsCards from '../components/StatsCards';
 import VisionMission from '../components/VisionMission';
 import Footer from '../components/Footer';
 import { useAppData } from '../context/AppDataContext';
+import { filterSessionsForUser, filterStudentsForUser, filterMohfezsForUser } from '../utils/userScopeHelper';
 
 function PlatformDashboard() {
   const {
@@ -15,11 +16,47 @@ function PlatformDashboard() {
     platformMohfezs,
     platformSessions,
     platformStudents,
-    platformApplicants
+    platformApplicants,
+    users = []
   } = useAppData();
 
-  // Compute active sessions count in real-time
-  const activeSessionsCount = platformSessions ? platformSessions.filter(s => {
+  const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+  const role = currentUser?.role || 'admin';
+  const isCoordinator = role === 'platform_coordinator';
+  const isMohfez = role === 'platform_mohfez' || role === 'mohfez';
+  const isStudent = role === 'student' || role === 'sharia_student';
+  const isRestricted = isCoordinator || isMohfez || isStudent;
+
+  // الحلقات والدارسون والمحفظون المخصصون للمستخدم الحالي فقط
+  const scopedSessions = React.useMemo(() => {
+    return filterSessionsForUser(platformSessions, currentUser, {
+      platformCoordinators,
+      platformMohfezs,
+      platformStudents,
+      users
+    });
+  }, [platformSessions, currentUser, platformCoordinators, platformMohfezs, platformStudents, users]);
+
+  const scopedStudents = React.useMemo(() => {
+    return filterStudentsForUser(platformStudents, currentUser, {
+      platformSessions,
+      platformCoordinators,
+      platformMohfezs,
+      users
+    });
+  }, [platformStudents, currentUser, platformSessions, platformCoordinators, platformMohfezs, users]);
+
+  const scopedMohfezs = React.useMemo(() => {
+    return filterMohfezsForUser(platformMohfezs, currentUser, {
+      platformSessions,
+      platformCoordinators,
+      platformStudents,
+      users
+    });
+  }, [platformMohfezs, currentUser, platformSessions, platformCoordinators, platformStudents, users]);
+
+  // Compute active sessions count in real-time (من الحلقات التابعة للمستخدم فقط)
+  const activeSessionsCount = scopedSessions ? scopedSessions.filter(s => {
     const dayNamesMap = {
       0: 'الأحد', 1: 'الاثنين', 2: 'الثلاثاء', 3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة', 6: 'السبت'
     };
@@ -41,57 +78,141 @@ function PlatformDashboard() {
     return currentMinutes >= startMin && currentMinutes <= endMin;
   }).length : 0;
 
-  const dynamicStats = [
-    {
-      id: 2,
-      title: 'الإدارة العليا',
-      value: platformTopManagement?.length || 0,
-      iconColor: '#eab308',
-      iconType: 'users'
-    },
-    {
-      id: 3,
-      title: 'المشرفون',
-      value: platformSupervisors?.length || 0,
-      iconColor: '#3b82f6',
-      iconType: 'book'
-    },
-    {
-      id: 4,
-      title: 'المنسقون',
-      value: platformCoordinators?.length || 0,
-      iconColor: '#f97316',
-      iconType: 'graduation-cap'
-    },
-    {
-      id: 5,
-      title: 'المحفظون',
-      value: platformMohfezs?.length || 0,
-      iconColor: '#22c55e',
-      iconType: 'user-check'
-    },
-    {
-      id: 6,
-      title: 'الحلقات',
-      value: platformSessions?.length || 0,
-      iconColor: '#ec4899',
-      iconType: 'book-open'
-    },
-    {
-      id: 7,
-      title: 'الدارسون',
-      value: platformStudents?.length || 0,
-      iconColor: '#06b6d4',
-      iconType: 'users'
-    },
-    {
-      id: 8,
-      title: 'طلبات التقديم',
-      value: platformApplicants?.length || 0,
-      iconColor: '#f59e0b',
-      iconType: 'user-check'
-    },
-  ];
+  let dynamicStats = [];
+
+  if (isCoordinator) {
+    dynamicStats = [
+      {
+        id: 1,
+        title: 'الحلقات المشرف عليها',
+        value: scopedSessions.length,
+        iconColor: '#ec4899',
+        iconType: 'book-open'
+      },
+      {
+        id: 2,
+        title: 'المحفظين في حلقاتي',
+        value: scopedMohfezs.length,
+        iconColor: '#22c55e',
+        iconType: 'user-check'
+      },
+      {
+        id: 3,
+        title: 'الدارسين في حلقاتي',
+        value: scopedStudents.length,
+        iconColor: '#06b6d4',
+        iconType: 'users'
+      },
+      {
+        id: 4,
+        title: 'الحلقات الجارية الآن',
+        value: activeSessionsCount,
+        iconColor: '#10b981',
+        iconType: 'book'
+      }
+    ];
+  } else if (isMohfez) {
+    dynamicStats = [
+      {
+        id: 1,
+        title: 'حلقاتي المسجلة',
+        value: scopedSessions.length,
+        iconColor: '#ec4899',
+        iconType: 'book-open'
+      },
+      {
+        id: 2,
+        title: 'الدارسين في حلقاتي',
+        value: scopedStudents.length,
+        iconColor: '#06b6d4',
+        iconType: 'users'
+      },
+      {
+        id: 3,
+        title: 'الحلقات الجارية الآن',
+        value: activeSessionsCount,
+        iconColor: '#10b981',
+        iconType: 'book'
+      }
+    ];
+  } else if (isStudent) {
+    dynamicStats = [
+      {
+        id: 1,
+        title: 'حلقتي',
+        value: scopedSessions.length,
+        iconColor: '#ec4899',
+        iconType: 'book-open'
+      },
+      {
+        id: 2,
+        title: 'المحفظ المشرف',
+        value: scopedMohfezs.length,
+        iconColor: '#22c55e',
+        iconType: 'user-check'
+      },
+      {
+        id: 3,
+        title: 'زملاء الحلقة',
+        value: scopedStudents.length,
+        iconColor: '#06b6d4',
+        iconType: 'users'
+      }
+    ];
+  } else {
+    // Admin & Management
+    dynamicStats = [
+      {
+        id: 2,
+        title: 'الإدارة العليا',
+        value: platformTopManagement?.length || 0,
+        iconColor: '#eab308',
+        iconType: 'users'
+      },
+      {
+        id: 3,
+        title: 'المشرفون',
+        value: platformSupervisors?.length || 0,
+        iconColor: '#3b82f6',
+        iconType: 'book'
+      },
+      {
+        id: 4,
+        title: 'المنسقون',
+        value: platformCoordinators?.length || 0,
+        iconColor: '#f97316',
+        iconType: 'graduation-cap'
+      },
+      {
+        id: 5,
+        title: 'المحفظون',
+        value: platformMohfezs?.length || 0,
+        iconColor: '#22c55e',
+        iconType: 'user-check'
+      },
+      {
+        id: 6,
+        title: 'الحلقات',
+        value: platformSessions?.length || 0,
+        iconColor: '#ec4899',
+        iconType: 'book-open'
+      },
+      {
+        id: 7,
+        title: 'الدارسون',
+        value: platformStudents?.length || 0,
+        iconColor: '#06b6d4',
+        iconType: 'users'
+      },
+      {
+        id: 8,
+        title: 'طلبات التقديم',
+        value: platformApplicants?.length || 0,
+        iconColor: '#f59e0b',
+        iconType: 'user-check'
+      },
+    ];
+  }
 
   return (
     <div className="dashboard-page">

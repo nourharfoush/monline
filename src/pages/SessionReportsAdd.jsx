@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
 import { quranSurahs } from '../data/quranSurahs';
+import { isUserAllowedSession } from '../utils/userScopeHelper';
 
 import { children1Curriculum } from '../data/children1';
 import { children2Curriculum } from '../data/children2';
@@ -74,12 +75,34 @@ function SessionReportsAdd() {
   const navigate = useNavigate();
   const location = useLocation();
   const isPlatform = location.pathname.startsWith('/platform-sessions');
-  const { sessions, platformSessions, sessionReports, addSessionReport } = useAppData();
+  const { 
+    sessions, 
+    platformSessions, 
+    sessionReports, 
+    addSessionReport, 
+    hasPermission,
+    platformCoordinators = [],
+    platformMohfezs = [],
+    platformStudents = [],
+    users = []
+  } = useAppData();
+  
+  const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+  const role = currentUser ? currentUser.role : 'admin';
+  const isSuperAdmin = role === 'admin';
+  const isStudent = role === 'student' || role === 'sharia_student';
   
   const sessionId = id;
   const session = isPlatform
     ? platformSessions.find(s => String(s.id) === String(id))
     : sessions.find(s => String(s.id) === String(id));
+
+  const isAllowed = isSuperAdmin || (
+    !isStudent && 
+    hasPermission('reports', 'add') && 
+    session && 
+    isUserAllowedSession(session, currentUser, { platformCoordinators, platformMohfezs, platformStudents, users })
+  );
 
   const getLocalDateString = (offsetHours = 0) => {
     const d = new Date();
@@ -233,6 +256,17 @@ function SessionReportsAdd() {
       </div>
     );
   };
+
+  if (!isAllowed) {
+    return (
+      <div className="management-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <div className="box-card" style={{ textAlign: 'center', maxWidth: '500px', padding: '40px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+          <h3 style={{ color: '#ef4444', marginBottom: '15px' }}>عذراً، ليس لديك صلاحية لإضافة تقرير يومي لهذه الحلقة</h3>
+          <p style={{ color: 'var(--text-secondary)' }}>لا يمكن إضافة التقارير إلا بواسطة المحفظ أو المنسق المسؤول عن هذه الحلقة أو إدارة النظام.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="management-page">

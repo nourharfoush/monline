@@ -1,55 +1,70 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Plus, Download, Upload, Edit, Trash2 } from 'lucide-react';
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
 import { exportToXLSX, importFromXLSX } from '../utils/xlsxHelper';
+import { filterStudentsForUser, filterSessionsForUser } from '../utils/userScopeHelper';
 import { countriesList } from '../data/countries';
 
 function PlatformStudentsList() {
-  const { platformStudents, deletePlatformStudent, addPlatformStudent, platformSessions, rowaqs, hasPermission, users, addUser, updateUser, deleteAllPlatformStudents, bulkImportPlatformStudents } = useAppData();
+  const { 
+    platformStudents, 
+    deletePlatformStudent, 
+    addPlatformStudent, 
+    platformSessions, 
+    rowaqs, 
+    hasPermission, 
+    users, 
+    addUser, 
+    updateUser, 
+    deleteAllPlatformStudents, 
+    bulkImportPlatformStudents,
+    platformCoordinators = [],
+    platformMohfezs = []
+  } = useAppData();
   const importRef = useRef(null);
   
   // Get current user and role
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
   const role = currentUser ? currentUser.role : 'admin';
-  const userSession = currentUser ? currentUser.userSession : '';
 
   const isSuperAdmin = role === 'admin';
   const isPlatformAdmin = role === 'platform_admin';
   const isPlatformSupervisor = role === 'platform_supervisor';
   const isPlatformCoordinator = role === 'platform_coordinator';
-  const isPlatformMohfez = role === 'platform_mohfez';
-  const isStudent = role === 'student';
+  const isPlatformMohfez = role === 'platform_mohfez' || role === 'mohfez';
+  const isStudent = role === 'student' || role === 'sharia_student';
 
-  const isAuthorized = isSuperAdmin || isPlatformAdmin || isPlatformSupervisor || isPlatformCoordinator;
+  const isAuthorized = isSuperAdmin || isPlatformAdmin || isPlatformSupervisor || isPlatformCoordinator || isPlatformMohfez || isStudent;
 
   const [filterName, setFilterName] = useState('');
   const [filterPassportNo, setFilterPassportNo] = useState('');
   const [filterCountry, setFilterCountry] = useState('');
   const [filterRowaq, setFilterRowaq] = useState('');
-  const [filterSession, setFilterSession] = useState(isPlatformCoordinator ? userSession : '');
+  const [filterSession, setFilterSession] = useState('');
 
-  // Sync filters
-  React.useEffect(() => {
-    if (isPlatformCoordinator && userSession) {
-      setFilterSession(userSession);
-    }
-  }, [currentUser]);
+  // 1. تصفية الحلقات المتاحة للمستخدم للقائمة المنسدلة
+  const availableSessions = useMemo(() => {
+    return filterSessionsForUser(platformSessions, currentUser, {
+      platformCoordinators,
+      platformMohfezs,
+      platformStudents,
+      users
+    });
+  }, [platformSessions, currentUser, platformCoordinators, platformMohfezs, platformStudents, users]);
 
-  const filtered = platformStudents.filter(s => {
-    // 1. Session role restrictions
-    if (isPlatformCoordinator && userSession) {
-      const matchingSession = platformSessions.find(sess => String(sess.id) === String(userSession) || sess.session_name === userSession || sess.session_no === userSession);
-      const studentSessionNo = s.session_id || s.session_no;
-      if (matchingSession) {
-        if (String(studentSessionNo) !== String(matchingSession.session_no) && String(studentSessionNo) !== String(matchingSession.id)) return false;
-      } else {
-        if (String(studentSessionNo) !== String(userSession)) return false;
-      }
-    }
+  // 2. تصفية الدارسين بدقة حسب نطاق المستخدم (المنسق يرى طلاب حلقاته فقط، المحفظ يرى طلاب حلقاته فقط، والدارس يرى نفسه فقط)
+  const scopedStudents = useMemo(() => {
+    return filterStudentsForUser(platformStudents, currentUser, {
+      platformSessions,
+      platformCoordinators,
+      platformMohfezs,
+      users
+    });
+  }, [platformStudents, currentUser, platformSessions, platformCoordinators, platformMohfezs, users]);
 
-    // 2. Normal filters
+  const filtered = scopedStudents.filter(s => {
     return (
       (filterName ? s.name?.includes(filterName) : true) &&
       (filterPassportNo ? (s.passport_no || s.national_id)?.includes(filterPassportNo) : true) &&
@@ -194,17 +209,16 @@ function PlatformStudentsList() {
           </div>
           <div className="form-group">
             <label>الحلقة</label>
-            <select className="form-select" value={filterSession} onChange={e => setFilterSession(e.target.value)} disabled={isPlatformCoordinator}>
+            <select className="form-select" value={filterSession} onChange={e => setFilterSession(e.target.value)}>
               <option value="">--- اختار الحلقة ---</option>
-              {platformSessions.map((s, i) => <option key={i} value={s.session_no}>حلقة {s.session_no}</option>)}
+              {availableSessions.map((s, i) => <option key={i} value={s.session_no}>حلقة {s.session_no}</option>)}
             </select>
           </div>
         </div>
         <div className="search-actions" style={{ justifyContent: 'flex-start' }}>
           <button className="btn btn-outline" onClick={() => { 
             setFilterName(''); setFilterPassportNo(''); setFilterCountry(''); 
-            setFilterRowaq(''); 
-            if (!isPlatformCoordinator) setFilterSession(''); 
+            setFilterRowaq(''); setFilterSession(''); 
           }}>إعادة تعيين</button>
           <button className="btn btn-primary" style={{ marginRight: '10px' }}><Search size={16} /> بحث</button>
         </div>

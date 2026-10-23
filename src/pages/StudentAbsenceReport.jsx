@@ -6,6 +6,7 @@ import {
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
 import { exportMultiSheetToXLSX } from '../utils/xlsxHelper';
+import { isSessionTaughtByMohfez } from '../utils/userScopeHelper';
 
 const normalizeAr = (str) => {
   if (!str) return '';
@@ -296,6 +297,7 @@ function StudentAbsenceReport() {
     platformSessions = [], 
     platformStudents = [], 
     platformCoordinators = [], 
+    platformMohfezs = [],
     users = [], 
     attendances = []
   } = useAppData();
@@ -303,7 +305,7 @@ function StudentAbsenceReport() {
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
   const role = currentUser?.role || 'admin';
   const isPlatformCoordinator = role === 'platform_coordinator';
-  const isPlatformMohfez = role === 'platform_mohfez';
+  const isPlatformMohfez = role === 'platform_mohfez' || role === 'mohfez';
 
   const today = new Date();
   const [selYear, setSelYear] = useState(String(today.getFullYear()));
@@ -321,11 +323,11 @@ function StudentAbsenceReport() {
     if (isPlatformCoordinator) {
       return platformSessions.filter(s => isSessionSupervisedByCoordinator(s, currentUser, platformCoordinators, users));
     }
-    if (isPlatformMohfez && currentUser?.name) {
-      return platformSessions.filter(s => normalizeAr(s.mohfez) === normalizeAr(currentUser.name));
+    if (isPlatformMohfez) {
+      return platformSessions.filter(s => isSessionTaughtByMohfez(s, currentUser, platformMohfezs, users));
     }
     return platformSessions;
-  }, [platformSessions, isPlatformCoordinator, isPlatformMohfez, currentUser, platformCoordinators, users]);
+  }, [platformSessions, isPlatformCoordinator, isPlatformMohfez, currentUser, platformCoordinators, platformMohfezs, users]);
 
   // قائمة السنوات المتوفرة
   const years = useMemo(() => {

@@ -3,6 +3,7 @@ import { Download, Search, Clock, Users, BookOpen, BarChart2 } from 'lucide-reac
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
 import { exportMultiSheetToXLSX } from '../utils/xlsxHelper';
+import { isSessionTaughtByMohfez } from '../utils/userScopeHelper';
 
 // ─── منطق حساب مدة الحلقة وفق جدول الأزهر الشريف ─────────────────────────
 const normalizeAr = (str) => {
@@ -227,11 +228,19 @@ function MohfezRow({ row, idx }) {
 
 // ─── مكوّن الصفحة الرئيسي ──────────────────────────────────────────────────────
 function MohfezHoursReport() {
-  const { platformSessions, platformStudents, platformCoordinators = [], users = [], attendances, hasPermission } = useAppData();
+  const { 
+    platformSessions, 
+    platformStudents, 
+    platformCoordinators = [], 
+    platformMohfezs = [],
+    users = [], 
+    attendances, 
+    hasPermission 
+  } = useAppData();
 
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
   const role = currentUser?.role || 'admin';
-  const isPlatformMohfez = role === 'platform_mohfez';
+  const isPlatformMohfez = role === 'platform_mohfez' || role === 'mohfez';
   const isPlatformCoordinator = role === 'platform_coordinator';
 
   const today = new Date();
@@ -240,13 +249,16 @@ function MohfezHoursReport() {
   const [selMohfez, setSelMohfez] = useState('');
   const [selRowaq,  setSelRowaq]  = useState('');
 
-  // الحلقات ذات الصلة: إذا كان منسق منصة، تقتصر فقط على الحلقات التي يشرف عليها
+  // الحلقات ذات الصلة: إذا كان منسق منصة أو محفظ، تقتصر فقط على الحلقات التابعة له
   const relevantSessions = useMemo(() => {
     if (isPlatformCoordinator) {
       return platformSessions.filter(s => isSessionSupervisedByCoordinator(s, currentUser, platformCoordinators, users));
     }
+    if (isPlatformMohfez) {
+      return platformSessions.filter(s => isSessionTaughtByMohfez(s, currentUser, platformMohfezs, users));
+    }
     return platformSessions;
-  }, [platformSessions, isPlatformCoordinator, currentUser, platformCoordinators, users]);
+  }, [platformSessions, isPlatformCoordinator, isPlatformMohfez, currentUser, platformCoordinators, platformMohfezs, users]);
 
   const mohfezList = useMemo(() => {
     const names = new Set();
@@ -293,9 +305,7 @@ function MohfezHoursReport() {
       const mohfezName = session.mohfez || '-';
 
       if (selMohfez && mohfezName !== selMohfez) return;
-      if (selRowaq  && session.rowaq !== selRowaq)  return;
-      if (isPlatformMohfez && currentUser?.name &&
-          normalizeAr(mohfezName) !== normalizeAr(currentUser.name)) return;
+      if (isPlatformMohfez && !isSessionTaughtByMohfez(session, currentUser, platformMohfezs, users)) return;
 
       const active = (att.records || []).filter(r => {
         const st = platformStudents.find(s => String(s.id) === String(r.studentId));

@@ -4,12 +4,24 @@ import { Plus, Trash2, Eye, Download } from 'lucide-react';
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
 import { exportToXLSX } from '../utils/xlsxHelper';
+import { isUserAllowedSession } from '../utils/userScopeHelper';
 
 function SessionAttendance() {
   const { id } = useParams();
   const location = useLocation();
   const isPlatform = location.pathname.startsWith('/platform-sessions');
-  const { sessions, platformSessions, attendances, deleteAttendance, hasPermission, students, platformStudents } = useAppData();
+  const { 
+    sessions, 
+    platformSessions, 
+    attendances, 
+    deleteAttendance, 
+    hasPermission, 
+    students, 
+    platformStudents,
+    platformCoordinators = [],
+    platformMohfezs = [],
+    users = []
+  } = useAppData();
   
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState(null);
@@ -74,30 +86,20 @@ function SessionAttendance() {
       .trim();
   };
 
-  // Check geographic access to the session
+  // Check access to the session
   let hasGeographicAccess = true;
   if (!isSuperAdmin) {
-    if (isRowaqAdmin && isPlatform) hasGeographicAccess = false;
-    if (isPlatformAdmin && !isPlatform) hasGeographicAccess = false;
-
-    if (session) {
-      if (isRowaqStaff && userAdmin && session.admin !== userAdmin) hasGeographicAccess = false;
-      if (isBranchCoordinator && userBranch && session.branch !== userBranch) hasGeographicAccess = false;
-      if (isMohfez || isPlatformMohfez) {
-        if (currentUser.name && normalizeArabic(session.mohfez) !== normalizeArabic(currentUser.name)) {
-          hasGeographicAccess = false;
-        }
-      }
-      if ((isMohfez || isPlatformMohfez || isPlatformCoordinator || isStudent) && userSession) {
-        if (String(session.id) !== String(userSession) && session.session_name !== userSession && session.session_no !== userSession) {
-          hasGeographicAccess = false;
-        }
-      }
-    } else {
+    if (!session) {
       hasGeographicAccess = false;
+    } else {
+      hasGeographicAccess = isUserAllowedSession(session, currentUser, {
+        platformCoordinators,
+        platformMohfezs,
+        platformStudents,
+        users
+      });
     }
   }
-
 
   const handleExport = () => {
     const exportData = sessionAttendances.map(a => {
@@ -116,7 +118,7 @@ function SessionAttendance() {
       <div className="management-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
         <div className="box-card" style={{ textAlign: 'center', maxWidth: '500px', padding: '40px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
           <h3 style={{ color: '#ef4444', marginBottom: '15px' }}>عذراً، ليس لديك صلاحية لعرض هذا القسم</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>يرجى التواصل مع مدير النظام للحصول على الصلاحيات اللازمة أو التأكد من نطاق صلاحيتك الجغرافية.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>هذه الحلقة ليست ضمن الحلقات المصرح لك بالاطلاع عليها.</p>
         </div>
       </div>
     );
@@ -130,9 +132,11 @@ function SessionAttendance() {
 
       <div className="table-controls" style={{ justifyContent: 'space-between', flexDirection: 'row-reverse', marginBottom: '15px' }}>
         <div className="action-buttons" style={{ flexDirection: 'row-reverse' }}>
-          <Link to={isPlatform ? `/platform-sessions/${sessionId}/attendance/add` : `/sessions/${sessionId}/attendance/add`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
-            <Plus size={16} /> إضافة الغياب
-          </Link>
+          {role !== 'student' && role !== 'sharia_student' && hasPermission('sessions', 'edit') && (
+            <Link to={isPlatform ? `/platform-sessions/${sessionId}/attendance/add` : `/sessions/${sessionId}/attendance/add`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
+              <Plus size={16} /> إضافة الغياب
+            </Link>
+          )}
         </div>
       </div>
 

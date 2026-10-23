@@ -1,18 +1,41 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Plus, Download, Upload, Edit, Trash2 } from 'lucide-react';
 import '../components/Management.css';
 import { useAppData } from '../context/AppDataContext';
 import { exportToXLSX, importFromXLSX } from '../utils/xlsxHelper';
+import { filterCoordinatorsForUser } from '../utils/userScopeHelper';
 
 function PlatformCoordinatorsList() {
-  const { platformCoordinators, deletePlatformCoordinator, addPlatformCoordinator, hasPermission, deleteAllPlatformCoordinators } = useAppData();
+  const { 
+    platformCoordinators, 
+    deletePlatformCoordinator, 
+    addPlatformCoordinator, 
+    hasPermission, 
+    deleteAllPlatformCoordinators,
+    platformSessions = [],
+    platformMohfezs = [],
+    platformStudents = [],
+    users = []
+  } = useAppData();
   const importRef = useRef(null);
   
+  const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+
   const [filterName, setFilterName] = useState('');
   const [filterSpecialization, setFilterSpecialization] = useState('');
 
-  const filtered = platformCoordinators.filter(c =>
+  // تصفية المنسقين وفق نطاق المستخدم (المنسق يرى نفسه فقط)
+  const scopedCoordinators = useMemo(() => {
+    return filterCoordinatorsForUser(platformCoordinators, currentUser, {
+      platformSessions,
+      platformMohfezs,
+      platformStudents,
+      users
+    });
+  }, [platformCoordinators, currentUser, platformSessions, platformMohfezs, platformStudents, users]);
+
+  const filtered = scopedCoordinators.filter(c =>
     (filterName ? c.name?.includes(filterName) : true) &&
     (filterSpecialization ? c.specialization === filterSpecialization : true)
   );
